@@ -1,0 +1,14 @@
+parameters:
+    level: 5
+    paths:
+        - feuer-kontaktform.php
+        - uninstall.php
+        - includes
+    excludePaths:
+        - release
+        - vendor
+    scanFiles: []
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        - '#Function .+ not found#'
+        - '#Call to function .+ with incorrect case#'

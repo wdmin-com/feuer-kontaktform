@@ -1,0 +1,28 @@
+{
+  "name": "wdmin/feuer-kontaktform",
+  "description": "WordPress contact and ticket plugin for volunteer fire departments.",
+  "type": "wordpress-plugin",
+  "require": {
+    "php": ">=8.0"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "^1.12",
+    "wp-coding-standards/wpcs": "^3.1",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+  },
+  "scripts": {
+    "lint": [
+      "phpcs --standard=phpcs.xml.dist"
+    ],
+    "analyse": [
+      "phpstan analyse --configuration=phpstan.neon.dist"
+    ]
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "sort-packages": true
+  }
+}

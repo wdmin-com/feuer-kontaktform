@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset name="Feuer Kontaktform">
+    <description>WordPress-oriented coding standard for Feuer-Kontaktform.</description>
+    <file>feuer-kontaktform.php</file>
+    <file>uninstall.php</file>
+    <file>includes</file>
+    <exclude-pattern>release/*</exclude-pattern>
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <arg name="extensions" value="php"/>
+    <rule ref="WordPress-Core"/>
+    <rule ref="WordPress-Docs"/>
+    <rule ref="WordPress-Extra"/>
+    <rule ref="PHPCompatibilityWP"/>
+    <config name="testVersion" value="8.0-"/>
+</ruleset>
