@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.1.1] - 2026-09-06
+
+- Telegram-Arbeitsbereich um eine deutschsprachige BotFather-Anleitung und eine geschützte Live-Prüfung des Bot-Tokens ergänzt.
+- Unvollständige oder ungültige Telegram-Daten werden direkt am Eingabefeld erklärt; der eingegebene Token wird vor dem Speichern nicht abgelegt oder zurückgegeben.
+- Webhook-Registrierung gegen ungültige Provider-Antworten und unerwartete Remote-Fehler abgesichert, damit eine Telegram-Störung WordPress nicht blockieren kann.
+
+## [3.1.0] - 2026-09-04
+
+- Mindestversion auf PHP 8.1 angehoben und Kompatibilitätsmetadaten für WordPress 7.1 aktualisiert.
+- Grundlage für den geschützten Telegram-Arbeitsbereich ergänzt: verschlüsselte Bot-Konfiguration, Webhook-Endpoint, einmalige Empfängerkopplung und berechtigte Ticketaktionen.
+- Neue Telegram-Datenbanktabellen für Empfänger, Abteilungsrouting und kurzlebige Einmalaktionen ergänzt.
+- Ticketbenachrichtigungen können Tickets übernehmen, als gelesen markieren oder als Spam kennzeichnen; jede Aktion wird im Plugin-Protokoll dokumentiert.
+- Direkte E-Mails werden zunächst ohne Weiterleitung und ohne Autoantwort in die Quarantäne gelegt. Erst nach „In Bearbeitung übernehmen“ erhält der Absender eine Bearbeitungsbestätigung.
+- Telegram-Empfänger können über den privaten Bot-Chat Vorname, Nachname und persönliche Antwortsignatur hinterlegen.
+- Die Plugin-Startseite wurde als animierter Verwaltungs-Hub mit berechtigungsabhängigen Schnellzugriffen überarbeitet.
+- Technische Spezifikation für Browseransicht, Dateivorschau, Spam-Quarantäne und die folgenden Ausbaustufen ergänzt.
+
 
 
 

@@ -143,6 +143,18 @@ final class Feuer_Kontaktform_Support_Mailer
         );
     }
 
+    public function send_processing_notice(array $ticket, array $settings): array
+    {
+        $recipient = sanitize_email((string) ($ticket['sender_email'] ?? ''));
+        if ($recipient === '') {
+            return ['success' => false, 'message' => 'Es fehlt eine gültige E-Mail-Adresse.', 'recipient' => ''];
+        }
+        $site_name = sanitize_text_field((string) (($settings['site_name'] ?? '') ?: get_bloginfo('name')));
+        $subject = '[Anfrage Nr. ' . (string) $ticket['ticket_code'] . '] Ihre Anfrage wird bearbeitet';
+        $body = "Guten Tag,\n\nIhre Anfrage wurde von unserem Team übernommen und wird jetzt bearbeitet.\n\nAnfrage Nr.: " . (string) $ticket['ticket_code'] . "\n\nMit freundlichen Grüßen\n" . $site_name;
+        return $this->send_mail($recipient, $subject, $body, $this->headers($settings, '', '', false, true), $settings);
+    }
+
     public function send_department_update(array $ticket, array $department, array $topic, array $settings, string $message): array
     {
         $ticket['message'] = $message;

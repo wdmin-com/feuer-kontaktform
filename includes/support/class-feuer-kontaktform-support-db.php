@@ -16,6 +16,9 @@ final class Feuer_Kontaktform_Support_DB
     private string $tickets_table;
     private string $messages_table;
     private string $logs_table;
+    private string $telegram_users_table;
+    private string $telegram_routes_table;
+    private string $telegram_actions_table;
 
     public function __construct()
     {
@@ -26,6 +29,9 @@ final class Feuer_Kontaktform_Support_DB
         $this->tickets_table     = $wpdb->prefix . 'feuer_kontaktform_tickets';
         $this->messages_table    = $wpdb->prefix . 'feuer_kontaktform_ticket_messages';
         $this->logs_table        = $wpdb->prefix . 'feuer_kontaktform_logs';
+        $this->telegram_users_table = $wpdb->prefix . 'feuer_kontaktform_telegram_users';
+        $this->telegram_routes_table = $wpdb->prefix . 'feuer_kontaktform_telegram_routes';
+        $this->telegram_actions_table = $wpdb->prefix . 'feuer_kontaktform_telegram_actions';
     }
 
     public static function default_settings(): array
@@ -78,6 +84,10 @@ final class Feuer_Kontaktform_Support_DB
             'allowed_file_types' => 'pdf,jpg,jpeg,png,doc,docx',
             'max_upload_mb' => 8,
             'role_access' => [],
+            'telegram_enabled' => 0,
+            'telegram_bot_token' => '',
+            'telegram_webhook_secret' => '',
+            'telegram_privacy_mode' => 'summary',
         ];
     }
 
@@ -278,6 +288,62 @@ final class Feuer_Kontaktform_Support_DB
             KEY created_at (created_at)
         ) $charset;");
 
+        dbDelta("CREATE TABLE {$this->telegram_users_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            wp_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            telegram_user_id bigint(20) unsigned NULL,
+            chat_id bigint(20) NULL,
+            display_name varchar(255) NOT NULL DEFAULT '',
+            first_name varchar(120) NOT NULL DEFAULT '',
+            last_name varchar(120) NOT NULL DEFAULT '',
+            signature_text text NULL,
+            pairing_code_hash varchar(64) NOT NULL DEFAULT '',
+            pairing_expires_at datetime NULL,
+            permissions_json longtext NULL,
+            is_active tinyint(1) NOT NULL DEFAULT 0,
+            last_seen_at datetime NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY telegram_user_id (telegram_user_id),
+            KEY wp_user_id (wp_user_id),
+            KEY pairing_code_hash (pairing_code_hash),
+            KEY is_active (is_active)
+        ) $charset;");
+
+        dbDelta("CREATE TABLE {$this->telegram_routes_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            department_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            topic_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            telegram_user_id bigint(20) unsigned NOT NULL,
+            actions_json longtext NULL,
+            is_active tinyint(1) NOT NULL DEFAULT 1,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY route_target (department_id, topic_id, telegram_user_id),
+            KEY department_id (department_id),
+            KEY telegram_user_id (telegram_user_id),
+            KEY is_active (is_active)
+        ) $charset;");
+
+        dbDelta("CREATE TABLE {$this->telegram_actions_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            token_hash varchar(64) NOT NULL,
+            ticket_id bigint(20) unsigned NOT NULL,
+            telegram_user_id bigint(20) unsigned NOT NULL,
+            action varchar(40) NOT NULL,
+            payload_json longtext NULL,
+            expires_at datetime NOT NULL,
+            consumed_at datetime NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY token_hash (token_hash),
+            KEY ticket_id (ticket_id),
+            KEY telegram_user_id (telegram_user_id),
+            KEY expires_at (expires_at)
+        ) $charset;");
+
         if (! is_array(get_option(self::OPTION_SETTINGS))) {
             add_option(self::OPTION_SETTINGS, self::default_settings(), '', false);
         }
@@ -317,6 +383,9 @@ final class Feuer_Kontaktform_Support_DB
         $wpdb->query("DROP TABLE IF EXISTS {$this->topics_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->departments_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->logs_table}");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->telegram_actions_table}");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->telegram_routes_table}");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->telegram_users_table}");
 
         delete_option(self::OPTION_SETTINGS);
         delete_option(self::OPTION_VERSION);
@@ -330,6 +399,8 @@ final class Feuer_Kontaktform_Support_DB
         $settings['imap_password'] = $this->decrypt_secret((string) ($settings['imap_password'] ?? ''));
         $settings['turnstile_secret_key'] = $this->decrypt_secret((string) ($settings['turnstile_secret_key'] ?? ''));
         $settings['recaptcha_secret_key'] = $this->decrypt_secret((string) ($settings['recaptcha_secret_key'] ?? ''));
+        $settings['telegram_bot_token'] = $this->decrypt_secret((string) ($settings['telegram_bot_token'] ?? ''));
+        $settings['telegram_webhook_secret'] = $this->decrypt_secret((string) ($settings['telegram_webhook_secret'] ?? ''));
         $settings['ticket_mailboxes'] = $this->normalize_ticket_mailboxes($settings);
 
         return $settings;
@@ -339,7 +410,7 @@ final class Feuer_Kontaktform_Support_DB
     {
         $settings = wp_parse_args($settings, self::default_settings());
         $settings['ticket_mailboxes'] = $this->normalize_ticket_mailboxes($settings);
-        foreach (['smtp_password', 'imap_password', 'turnstile_secret_key', 'recaptcha_secret_key'] as $key) {
+        foreach (['smtp_password', 'imap_password', 'turnstile_secret_key', 'recaptcha_secret_key', 'telegram_bot_token', 'telegram_webhook_secret'] as $key) {
             $settings[$key] = $this->encrypt_secret((string) ($settings[$key] ?? ''));
         }
         foreach ($settings['ticket_mailboxes'] as $index => $mailbox) {
@@ -347,6 +418,185 @@ final class Feuer_Kontaktform_Support_DB
         }
 
         update_option(self::OPTION_SETTINGS, $settings, false);
+    }
+
+    public function create_telegram_pairing(int $wp_user_id, array $permissions, int $minutes = 30): string
+    {
+        global $wpdb;
+
+        try {
+            $code = strtoupper(substr(strtr(base64_encode(random_bytes(12)), '+/', 'AZ'), 0, 16));
+        } catch (Throwable $exception) {
+            return '';
+        }
+
+        $now = current_time('mysql');
+        $expires = current_datetime()->modify('+' . max(5, min(60, $minutes)) . ' minutes')->format('Y-m-d H:i:s');
+        $wpdb->insert($this->telegram_users_table, [
+            'wp_user_id' => max(0, $wp_user_id),
+            'pairing_code_hash' => hash_hmac('sha256', $code, wp_salt('auth')),
+            'pairing_expires_at' => $expires,
+            'permissions_json' => wp_json_encode($this->normalize_telegram_permissions($permissions)),
+            'is_active' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $wpdb->insert_id ? $code : '';
+    }
+
+    public function complete_telegram_pairing(string $code, int $telegram_user_id, int $chat_id, string $display_name): ?array
+    {
+        global $wpdb;
+
+        $hash = hash_hmac('sha256', strtoupper(trim($code)), wp_salt('auth'));
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->telegram_users_table} WHERE pairing_code_hash = %s AND pairing_expires_at >= %s AND is_active = 0 ORDER BY id DESC LIMIT 1",
+            $hash,
+            current_time('mysql')
+        ), ARRAY_A);
+        if (! is_array($row) || $telegram_user_id <= 0 || $chat_id === 0) {
+            return null;
+        }
+
+        $updated = $wpdb->update($this->telegram_users_table, [
+            'telegram_user_id' => $telegram_user_id,
+            'chat_id' => $chat_id,
+            'display_name' => sanitize_text_field($display_name),
+            'pairing_code_hash' => '',
+            'pairing_expires_at' => null,
+            'is_active' => 1,
+            'last_seen_at' => current_time('mysql'),
+            'updated_at' => current_time('mysql'),
+        ], ['id' => (int) $row['id']]);
+
+        return $updated === false ? null : $this->get_telegram_user($telegram_user_id);
+    }
+
+    public function get_telegram_user(int $telegram_user_id): ?array
+    {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->telegram_users_table} WHERE telegram_user_id = %d AND is_active = 1 LIMIT 1", $telegram_user_id), ARRAY_A);
+        if (! is_array($row)) {
+            return null;
+        }
+        $row['permissions'] = $this->normalize_telegram_permissions(json_decode((string) $row['permissions_json'], true));
+        return $row;
+    }
+
+    public function update_telegram_profile(int $telegram_user_id, string $first_name, string $last_name, string $signature): bool
+    {
+        global $wpdb;
+        if ($telegram_user_id <= 0 || trim($first_name) === '' || trim($last_name) === '') {
+            return false;
+        }
+        $updated = $wpdb->update($this->telegram_users_table, [
+            'first_name' => sanitize_text_field($first_name),
+            'last_name' => sanitize_text_field($last_name),
+            'signature_text' => sanitize_textarea_field($signature),
+            'updated_at' => current_time('mysql'),
+        ], ['telegram_user_id' => $telegram_user_id, 'is_active' => 1], ['%s', '%s', '%s', '%s'], ['%d', '%d']);
+        if ($updated !== false) {
+            $this->log('telegram_profile_updated', 'telegram', $telegram_user_id, []);
+        }
+        return $updated !== false;
+    }
+
+    public function get_telegram_users(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results("SELECT * FROM {$this->telegram_users_table} ORDER BY is_active DESC, display_name ASC, id DESC", ARRAY_A);
+        return is_array($rows) ? array_map(function (array $row): array {
+            $row['permissions'] = $this->normalize_telegram_permissions(json_decode((string) $row['permissions_json'], true));
+            return $row;
+        }, $rows) : [];
+    }
+
+    public function telegram_routes_for_ticket(array $ticket): array
+    {
+        global $wpdb;
+        $department_id = absint($ticket['department_id'] ?? 0);
+        $topic_id = absint($ticket['topic_id'] ?? 0);
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT r.*, u.chat_id, u.display_name, u.permissions_json FROM {$this->telegram_routes_table} r INNER JOIN {$this->telegram_users_table} u ON u.telegram_user_id = r.telegram_user_id WHERE r.is_active = 1 AND u.is_active = 1 AND r.department_id = %d AND (r.topic_id = 0 OR r.topic_id = %d)",
+            $department_id,
+            $topic_id
+        ), ARRAY_A);
+        return is_array($rows) ? array_map(function (array $row): array {
+            $row['actions'] = $this->normalize_telegram_permissions(json_decode((string) $row['actions_json'], true));
+            $row['permissions'] = $this->normalize_telegram_permissions(json_decode((string) $row['permissions_json'], true));
+            return $row;
+        }, $rows) : [];
+    }
+
+    public function get_telegram_routes(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results("SELECT r.*, u.display_name, d.name AS department_name, p.title AS topic_title FROM {$this->telegram_routes_table} r INNER JOIN {$this->telegram_users_table} u ON u.telegram_user_id = r.telegram_user_id LEFT JOIN {$this->departments_table} d ON d.id = r.department_id LEFT JOIN {$this->topics_table} p ON p.id = r.topic_id ORDER BY d.name ASC, p.title ASC, u.display_name ASC", ARRAY_A);
+        return is_array($rows) ? array_map(function (array $row): array {
+            $row['actions'] = $this->normalize_telegram_permissions(json_decode((string) $row['actions_json'], true));
+            return $row;
+        }, $rows) : [];
+    }
+
+    public function save_telegram_route(int $department_id, int $topic_id, int $telegram_user_id, array $actions): bool
+    {
+        global $wpdb;
+        if ($department_id <= 0 || $telegram_user_id <= 0 || $this->get_telegram_user($telegram_user_id) === null) {
+            return false;
+        }
+        $now = current_time('mysql');
+        $existing = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$this->telegram_routes_table} WHERE department_id = %d AND topic_id = %d AND telegram_user_id = %d", $department_id, max(0, $topic_id), $telegram_user_id));
+        $data = ['actions_json' => wp_json_encode($this->normalize_telegram_permissions($actions)), 'is_active' => 1, 'updated_at' => $now];
+        $result = $existing
+            ? $wpdb->update($this->telegram_routes_table, $data, ['id' => (int) $existing])
+            : $wpdb->insert($this->telegram_routes_table, $data + ['department_id' => $department_id, 'topic_id' => max(0, $topic_id), 'telegram_user_id' => $telegram_user_id, 'created_at' => $now]);
+        return $result !== false;
+    }
+
+    public function create_telegram_action(int $ticket_id, int $telegram_user_id, string $action, array $payload = [], int $minutes = 15): string
+    {
+        global $wpdb;
+        try {
+            $token = substr(strtr(base64_encode(random_bytes(18)), '+/', 'AZ'), 0, 24);
+        } catch (Throwable $exception) {
+            return '';
+        }
+        $wpdb->insert($this->telegram_actions_table, [
+            'token_hash' => hash_hmac('sha256', $token, wp_salt('auth')),
+            'ticket_id' => $ticket_id,
+            'telegram_user_id' => $telegram_user_id,
+            'action' => sanitize_key($action),
+            'payload_json' => wp_json_encode($payload),
+            'expires_at' => current_datetime()->modify('+' . max(1, min(30, $minutes)) . ' minutes')->format('Y-m-d H:i:s'),
+            'created_at' => current_time('mysql'),
+        ]);
+        return $wpdb->insert_id ? $token : '';
+    }
+
+    public function consume_telegram_action(string $token, int $telegram_user_id): ?array
+    {
+        global $wpdb;
+        $hash = hash_hmac('sha256', $token, wp_salt('auth'));
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->telegram_actions_table} WHERE token_hash = %s AND telegram_user_id = %d AND consumed_at IS NULL AND expires_at >= %s LIMIT 1",
+            $hash,
+            $telegram_user_id,
+            current_time('mysql')
+        ), ARRAY_A);
+        if (! is_array($row)) {
+            return null;
+        }
+        $wpdb->update($this->telegram_actions_table, ['consumed_at' => current_time('mysql')], ['id' => (int) $row['id']]);
+        $row['payload'] = json_decode((string) $row['payload_json'], true);
+        return $row;
+    }
+
+    private function normalize_telegram_permissions($permissions): array
+    {
+        $source = is_array($permissions) ? $permissions : [];
+        $allowed = ['view', 'open_browser', 'claim', 'read', 'reply', 'spam'];
+        return array_values(array_intersect($allowed, array_map('sanitize_key', array_map('strval', $source))));
     }
 
     public function normalize_ticket_mailboxes(array $settings): array
@@ -825,7 +1075,7 @@ final class Feuer_Kontaktform_Support_DB
             'sender_phone' => sanitize_text_field((string) ($data['sender_phone'] ?? '')),
             'message' => sanitize_textarea_field((string) ($data['message'] ?? '')),
             'fields_json' => wp_json_encode($data['fields'] ?? []),
-            'status' => 'open',
+            'status' => in_array((string) ($data['status'] ?? 'open'), ['open', 'in_progress', 'quarantined', 'spam', 'resolved'], true) ? (string) ($data['status'] ?? 'open') : 'open',
             'privacy_required' => empty($data['privacy_required']) ? 0 : 1,
             'privacy_accepted' => empty($data['privacy_accepted']) ? 0 : 1,
             'privacy_version' => sanitize_text_field((string) ($data['privacy_version'] ?? '')),
@@ -867,8 +1117,31 @@ final class Feuer_Kontaktform_Support_DB
 
         $this->add_message($ticket_id, 'inbound', $record['sender_email'], (string) ($data['recipient_email'] ?? ''), $record['message'], $data);
         $this->log('ticket_created', 'ticket', $ticket_id, ['ticket_code' => $record['ticket_code']]);
+        do_action('feuer_kontaktform_ticket_created', $ticket_id);
 
         return $ticket_id;
+    }
+
+    public function update_ticket_workflow(int $ticket_id, string $status, int $actor_id = 0, string $reason = ''): bool
+    {
+        global $wpdb;
+        $allowed = ['open', 'in_progress', 'quarantined', 'spam', 'resolved'];
+        if ($ticket_id <= 0 || ! in_array($status, $allowed, true)) {
+            return false;
+        }
+        $updated = $wpdb->update($this->tickets_table, [
+            'status' => $status,
+            'updated_at' => current_time('mysql'),
+        ], ['id' => $ticket_id], ['%s', '%s'], ['%d']);
+        if ($updated === false) {
+            return false;
+        }
+        $this->log('ticket_workflow_updated', 'ticket', $ticket_id, [
+            'status' => $status,
+            'actor_id' => $actor_id,
+            'reason' => sanitize_text_field($reason),
+        ]);
+        return true;
     }
 
     public function add_message(int $ticket_id, string $direction, string $from, string $to, string $body, array $raw = []): void
@@ -1704,7 +1977,7 @@ final class Feuer_Kontaktform_Support_DB
 
     private function encrypt_secret(string $value): string
     {
-        if ($value === '' || $this->string_starts_with($value, 'enc:')) {
+        if ($value === '' || $this->string_starts_with($value, 'enc:') || $this->string_starts_with($value, 'encg:')) {
             return $value;
         }
 
@@ -1714,21 +1987,38 @@ final class Feuer_Kontaktform_Support_DB
 
         $key = hash('sha256', wp_salt('secure_auth'), true);
         try {
-            $iv = random_bytes(16);
+            $iv = random_bytes(12);
         } catch (Throwable $exception) {
             return $value;
         }
-        $encrypted = openssl_encrypt($value, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+        $tag = '';
+        $encrypted = openssl_encrypt($value, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
         if (! is_string($encrypted)) {
             return $value;
         }
 
-        return 'enc:' . base64_encode($iv . $encrypted);
+        return 'encg:' . base64_encode($iv . $tag . $encrypted);
     }
 
     private function decrypt_secret(string $value): string
     {
-        if ($value === '' || ! $this->string_starts_with($value, 'enc:') || ! function_exists('openssl_decrypt')) {
+        if ($value === '' || ! function_exists('openssl_decrypt')) {
+            return $value;
+        }
+
+        $key = hash('sha256', wp_salt('secure_auth'), true);
+        if ($this->string_starts_with($value, 'encg:')) {
+            $raw = base64_decode(substr($value, 5), true);
+            if (! is_string($raw) || strlen($raw) <= 28) {
+                return '';
+            }
+            $iv = substr($raw, 0, 12);
+            $tag = substr($raw, 12, 16);
+            $payload = substr($raw, 28);
+            $decrypted = openssl_decrypt($payload, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+            return is_string($decrypted) ? $decrypted : '';
+        }
+        if (! $this->string_starts_with($value, 'enc:')) {
             return $value;
         }
 
@@ -1739,7 +2029,6 @@ final class Feuer_Kontaktform_Support_DB
 
         $iv = substr($raw, 0, 16);
         $payload = substr($raw, 16);
-        $key = hash('sha256', wp_salt('secure_auth'), true);
         $decrypted = openssl_decrypt($payload, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
 
         return is_string($decrypted) ? $decrypted : '';

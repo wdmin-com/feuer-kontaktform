@@ -12,6 +12,7 @@ final class Feuer_Kontaktform_Support_Plugin
     private Feuer_Kontaktform_Support_Admin $admin;
     private Feuer_Kontaktform_Support_Frontend $frontend;
     private Feuer_Kontaktform_Support_Inbound $inbound;
+    private Feuer_Kontaktform_Support_Telegram $telegram;
 
     public function __construct(
         private Feuer_Kontaktform_Support_DB $db,
@@ -19,6 +20,7 @@ final class Feuer_Kontaktform_Support_Plugin
     ) {
         $this->updater = new Feuer_Kontaktform_Updater();
         $this->inbound = new Feuer_Kontaktform_Support_Inbound($this->db, $this->mailer);
+        $this->telegram = new Feuer_Kontaktform_Support_Telegram($this->db, $this->mailer);
         $this->admin = new Feuer_Kontaktform_Support_Admin($this->db, $this->mailer, $this->inbound, $this->updater);
         $this->frontend = new Feuer_Kontaktform_Support_Frontend($this->db, $this->mailer);
 
@@ -65,6 +67,7 @@ final class Feuer_Kontaktform_Support_Plugin
         $this->updater->register();
         $this->admin->register();
         $this->frontend->register();
+        $this->telegram->register();
     }
 
     public static function cron_schedules(array $schedules): array

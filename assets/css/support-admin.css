@@ -943,3 +943,25 @@
     padding: 12px 12px 0;
   }
 }
+
+.feuer-admin-home { max-width: 1180px; }
+.feuer-home-hero { display:flex; justify-content:space-between; gap:28px; align-items:center; margin:24px 0; padding:32px; color:#fff; background:linear-gradient(135deg,#1b2638,#9f1d2d); border-radius:18px; box-shadow:0 18px 42px rgba(27,38,56,.2); }
+.feuer-home-hero h1 { margin:4px 0 8px; color:#fff; font-size:30px; }
+.feuer-home-hero p { margin:0; color:rgba(255,255,255,.83); font-size:15px; }
+.feuer-home-hero .dashicons { font-size:62px; width:62px; height:62px; opacity:.85; }
+.feuer-home-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
+.feuer-home-card { position:relative; display:flex; gap:16px; min-height:174px; padding:22px; overflow:hidden; text-decoration:none; color:#18222f; border:1px solid #e1e6ec; border-radius:16px; background:#fff; box-shadow:0 5px 16px rgba(25,38,55,.06); transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.feuer-home-card::before { content:""; position:absolute; inset:0 auto 0 0; width:5px; background:#b3192b; }
+.feuer-home-card:hover, .feuer-home-card:focus-visible { color:#18222f; transform:translateY(-4px); border-color:#c5ced9; box-shadow:0 14px 28px rgba(25,38,55,.14); }
+.feuer-home-card .dashicons { flex:0 0 38px; width:38px; height:38px; padding:9px; color:#fff; background:#b3192b; border-radius:11px; font-size:20px; }
+.feuer-home-card h2 { margin:1px 0 8px; font-size:18px; color:#18222f; }
+.feuer-home-card p { margin:0 0 14px; color:#627080; line-height:1.5; }
+.feuer-home-card b { color:#9c1728; font-size:13px; }
+.feuer-home-card.is-blue::before,.feuer-home-card.is-blue .dashicons { background:#2563a7; }.feuer-home-card.is-blue b{color:#2563a7}.feuer-home-card.is-violet::before,.feuer-home-card.is-violet .dashicons{background:#7052a6}.feuer-home-card.is-violet b{color:#7052a6}.feuer-home-card.is-cyan::before,.feuer-home-card.is-cyan .dashicons{background:#087f8c}.feuer-home-card.is-cyan b{color:#087f8c}.feuer-home-card.is-amber::before,.feuer-home-card.is-amber .dashicons{background:#b46b13}.feuer-home-card.is-amber b{color:#9b590a}
+@media (max-width:680px){.feuer-home-hero{padding:24px}.feuer-home-hero .dashicons{display:none}.feuer-home-grid{grid-template-columns:1fr}}
+.feuer-telegram-help{margin:16px 0;padding:12px 16px;border:1px solid #c5d6e8;border-radius:8px;background:#f4f9ff}
+.feuer-telegram-help summary{cursor:pointer;font-weight:700;color:#174d79}
+.feuer-telegram-help ol{margin:12px 0 4px 20px}
+[data-telegram-token-status].is-success{color:#157347;font-weight:700}
+[data-telegram-token-status].is-error{color:#b42318;font-weight:700}
+[data-telegram-token-status].is-pending{color:#175cd3;font-weight:700}

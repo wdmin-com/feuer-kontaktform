@@ -177,7 +177,7 @@ final class Feuer_Kontaktform_Updater
                 'package' => '',
                 'tested' => $this->compatible_tested_version((string) ($info['tested'] ?? '')),
                 'requires' => (string) ($info['requires'] ?? '6.9'),
-                'requires_php' => (string) ($info['requires_php'] ?? '8.0'),
+                'requires_php' => (string) ($info['requires_php'] ?? '8.1'),
             ];
             return $transient;
         }
@@ -191,7 +191,7 @@ final class Feuer_Kontaktform_Updater
             'package' => (string) $info['download_url'],
             'tested' => $this->compatible_tested_version((string) ($info['tested'] ?? '')),
             'requires' => (string) ($info['requires'] ?? '6.9'),
-            'requires_php' => (string) ($info['requires_php'] ?? '8.0'),
+            'requires_php' => (string) ($info['requires_php'] ?? '8.1'),
         ];
 
         return $transient;
@@ -212,7 +212,7 @@ final class Feuer_Kontaktform_Updater
                 'author' => '<a href="https://wdmin.com/">Walter Färber</a>',
                 'homepage' => self::UPDATE_BASE_URL,
                 'requires' => '6.9',
-                'requires_php' => '8.0',
+                'requires_php' => '8.1',
                 'tested' => $this->compatible_tested_version(''),
                 'download_link' => '',
                 'last_updated' => '',
@@ -230,7 +230,7 @@ final class Feuer_Kontaktform_Updater
             'author' => '<a href="https://wdmin.com/">Walter Färber</a>',
             'homepage' => self::UPDATE_BASE_URL,
             'requires' => (string) ($info['requires'] ?? '6.9'),
-            'requires_php' => (string) ($info['requires_php'] ?? '8.0'),
+            'requires_php' => (string) ($info['requires_php'] ?? '8.1'),
             'tested' => $this->compatible_tested_version((string) ($info['tested'] ?? '')),
             'download_link' => '',
             'last_updated' => (string) ($info['last_updated'] ?? ''),
@@ -287,7 +287,7 @@ final class Feuer_Kontaktform_Updater
             'version' => $version,
             'download_url' => $download_url,
             'requires' => sanitize_text_field((string) ($decoded['requires'] ?? '6.9')),
-            'requires_php' => sanitize_text_field((string) ($decoded['requires_php'] ?? '8.0')),
+            'requires_php' => sanitize_text_field((string) ($decoded['requires_php'] ?? '8.1')),
             'tested' => $this->compatible_tested_version(sanitize_text_field((string) ($decoded['tested'] ?? ''))),
             'last_updated' => sanitize_text_field((string) ($decoded['last_updated'] ?? '')),
             'description' => wp_kses_post((string) ($decoded['description'] ?? '')),
@@ -366,7 +366,7 @@ final class Feuer_Kontaktform_Updater
                 'package' => (string) $info['download_url'],
                 'tested' => $this->compatible_tested_version((string) ($info['tested'] ?? '')),
                 'requires' => (string) ($info['requires'] ?? '6.9'),
-                'requires_php' => (string) ($info['requires_php'] ?? '8.0'),
+                'requires_php' => (string) ($info['requires_php'] ?? '8.1'),
             ];
         } else {
             $transient->no_update[$plugin_file] = (object) [
@@ -378,7 +378,7 @@ final class Feuer_Kontaktform_Updater
                 'package' => '',
                 'tested' => $this->compatible_tested_version((string) ($info['tested'] ?? '')),
                 'requires' => (string) ($info['requires'] ?? '6.9'),
-                'requires_php' => (string) ($info['requires_php'] ?? '8.0'),
+                'requires_php' => (string) ($info['requires_php'] ?? '8.1'),
             ];
         }
 

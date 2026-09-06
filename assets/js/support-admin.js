@@ -252,4 +252,43 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
+
+  document.querySelectorAll('[data-telegram-token]').forEach(function (input) {
+    var status = document.querySelector('[data-telegram-token-status]');
+    var timer;
+    function show(message, state) {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.remove('is-success', 'is-error', 'is-pending');
+      if (state) status.classList.add(state);
+    }
+    input.addEventListener('input', function () {
+      window.clearTimeout(timer);
+      var token = input.value.trim();
+      if (!token) {
+        show('Token einfügen: Die Verbindung wird automatisch geprüft, ohne den Token zu speichern.', '');
+        return;
+      }
+      if (token.length < 20 || token.indexOf(':') === -1) {
+        show('Der Token ist noch unvollständig.', 'is-error');
+        return;
+      }
+      show('Telegram-Verbindung wird geprüft …', 'is-pending');
+      timer = window.setTimeout(function () {
+        var config = window.feuerKontaktformAdmin || {};
+        if (!config.ajaxUrl || !config.telegramNonce) {
+          show('Die Live-Prüfung konnte nicht initialisiert werden.', 'is-error');
+          return;
+        }
+        var body = new URLSearchParams();
+        body.set('action', 'feuer_kontaktform_telegram_validate');
+        body.set('nonce', config.telegramNonce);
+        body.set('token', token);
+        window.fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() })
+          .then(function (response) { return response.json(); })
+          .then(function (result) { show((result.data && result.data.message) || 'Prüfung fehlgeschlagen.', result.success ? 'is-success' : 'is-error'); })
+          .catch(function () { show('Die Live-Prüfung ist fehlgeschlagen. Bitte Verbindung und WordPress prüfen.', 'is-error'); });
+      }, 650);
+    });
+  });
 });

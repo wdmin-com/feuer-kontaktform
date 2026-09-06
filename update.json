@@ -1,12 +1,12 @@
 {
-    "version":  "3.0.50",
+    "version":  "3.1.1",
     "download_url":  "https://wdmin.com/plugins/feuer-kontaktform/release/latest/feuer-kontaktform.zip",
-    "requires":  "6.9",
-    "requires_php":  "8.0",
-    "tested":  "6.9",
+    "requires":  "7.1",
+    "requires_php":  "8.1",
+    "tested":  "7.1",
     "release_type":  "stable",
     "stable":  true,
-    "last_updated":  "2026-07-02",
-    "description":  "Kontaktform ist ein Kontaktformular- und Anfrage-System fuer Websites freiwilliger Feuerwehren.",
-    "changelog":  "Version 3.0.50: Verbesserte Admin-Oberflaeche, reduzierte Anzeige direkter Download-URLs und neue Release-Paketierung."
+    "last_updated":  "2026-09-06",
+    "description":  "Kontaktform ist ein Kontaktformular- und Anfragesystem für Websites freiwilliger Feuerwehren.",
+    "changelog":  "Version 3.1.1: Stabilitaets-, Sicherheits- und Betriebsverbesserungen."
 }

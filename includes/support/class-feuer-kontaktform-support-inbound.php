@@ -309,6 +309,7 @@ final class Feuer_Kontaktform_Support_Inbound
         $ticket = [
             'ticket_code' => $ticket_code,
             'origin' => 'direct_email',
+            'status' => 'quarantined',
             'department_id' => 0,
             'topic_id' => 0,
             'subject' => $subject !== '' ? $subject : 'E-Mail ohne Betreff',
@@ -349,31 +350,21 @@ final class Feuer_Kontaktform_Support_Inbound
         }
 
         $ticket['id'] = $ticket_id;
-        $result = $this->mailer->send_direct_email_ticket(
-            $ticket,
-            $settings,
-            ! empty($settings['direct_email_auto_reply'])
-        );
-        $this->db->record_delivery_attempt(
-            $ticket_id,
-            (string) ($result['recipient'] ?? $recipient),
-            $result
-        );
         imap_setflag_full($stream, (string) $message_number, '\\Seen');
         $this->db->log(
-            ! empty($result['success']) ? 'direct_email_ticket_created' : 'direct_email_forward_failed',
+            'direct_email_ticket_quarantined',
             'ticket',
             $ticket_id,
             [
                 'ticket_code' => $ticket_code,
                 'sender' => $sender,
-                'recipient' => $recipient,
+                'recipient' => '',
                 'message_id' => $message_id,
-                'message' => (string) ($result['message'] ?? ''),
+                'message' => 'Direkte E-Mail wurde ohne Weiterleitung und ohne Autoantwort in die Quarantäne gelegt.',
             ]
         );
 
-        return ['status' => ! empty($result['success']) ? 'processed' : 'failed'];
+        return ['status' => 'processed'];
     }
 
     private function import_department_reply(

@@ -31,6 +31,7 @@ final class Feuer_Kontaktform_Support_Admin
         add_action('admin_menu', [$this, 'menu']);
         add_action('admin_init', [$this, 'handle_actions']);
         add_action('admin_enqueue_scripts', [$this, 'assets']);
+        add_action('wp_ajax_feuer_kontaktform_telegram_validate', [$this, 'validate_telegram_token']);
         add_action('wp_dashboard_setup', [$this, 'dashboard_widget']);
     }
 
@@ -43,6 +44,42 @@ final class Feuer_Kontaktform_Support_Admin
         wp_enqueue_media();
         wp_enqueue_style('feuer-kontaktform-support-admin', FEUER_KONTAKTFORM_URL . 'assets/css/support-admin.css', [], FEUER_KONTAKTFORM_VERSION);
         wp_enqueue_script('feuer-kontaktform-support-admin', FEUER_KONTAKTFORM_URL . 'assets/js/support-admin.js', [], FEUER_KONTAKTFORM_VERSION, true);
+        wp_add_inline_script('feuer-kontaktform-support-admin', 'window.feuerKontaktformAdmin = ' . wp_json_encode([
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'telegramNonce' => wp_create_nonce('feuer_kontaktform_telegram_validate'),
+        ]) . ';', 'before');
+    }
+
+    /** Validates an entered token without saving or returning it. */
+    public function validate_telegram_token(): void
+    {
+        if (! $this->user_has_access('settings_manage')) {
+            wp_send_json_error(['message' => 'Keine Berechtigung für die Telegram-Einstellungen.'], 403);
+        }
+        check_ajax_referer('feuer_kontaktform_telegram_validate', 'nonce');
+
+        $token = trim((string) wp_unslash($_POST['token'] ?? ''));
+        if ($token === '') {
+            wp_send_json_error(['message' => 'Bitte zuerst den Bot-Token von @BotFather einfügen.'], 400);
+        }
+        if (strlen($token) < 20 || strpos($token, ':') === false) {
+            wp_send_json_error(['message' => 'Der Bot-Token wirkt unvollständig. Er enthält eine Zahlenfolge, einen Doppelpunkt und einen geheimen Teil.'], 400);
+        }
+
+        $endpoint = 'https://api.telegram.org/bot' . str_replace('%3A', ':', rawurlencode($token)) . '/getMe';
+        $response = wp_remote_get($endpoint, ['timeout' => 10]);
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => 'Telegram ist momentan nicht erreichbar: ' . $response->get_error_message()], 502);
+        }
+        $payload = json_decode((string) wp_remote_retrieve_body($response), true);
+        if (wp_remote_retrieve_response_code($response) !== 200 || ! is_array($payload) || empty($payload['ok']) || ! is_array($payload['result'] ?? null)) {
+            $this->db->log('telegram_token_validation_failed', 'telegram', 0, ['http_status' => wp_remote_retrieve_response_code($response)]);
+            wp_send_json_error(['message' => 'Telegram akzeptiert diesen Token nicht. Bitte den Token bei @BotFather erneut kopieren.'], 400);
+        }
+
+        $bot = $payload['result'];
+        $this->db->log('telegram_token_validated', 'telegram', 0, ['bot_id' => absint($bot['id'] ?? 0)]);
+        wp_send_json_success(['message' => 'Verbindung erfolgreich: @' . sanitize_text_field((string) ($bot['username'] ?? 'Ihr Bot')) . ' antwortet.']);
     }
 
     public function menu(): void
@@ -63,6 +100,8 @@ final class Feuer_Kontaktform_Support_Admin
 
         if ($this->user_has_access('settings_manage')) {
             add_submenu_page(self::MENU_SLUG, 'Einstellungen', 'Einstellungen', 'read', 'feuer-kontaktform-settings', [$this, 'settings_page']);
+
+            add_submenu_page(self::MENU_SLUG, 'Telegram', 'Telegram', 'read', 'feuer-kontaktform-telegram', [$this, 'telegram_page']);
         }
 
         if ($this->user_has_access('logs_view')) {
@@ -89,9 +128,23 @@ final class Feuer_Kontaktform_Support_Admin
             case 'save_settings':
                 $settings = $this->sanitize_settings($_POST);
                 $this->db->update_settings($settings);
+                do_action('feuer_kontaktform_telegram_settings_saved');
                 Feuer_Kontaktform_Support_Plugin::ensure_inbound_cron();
                 $this->db->log('settings_saved', 'settings', 0, []);
                 $this->redirect('feuer-kontaktform-settings', 'settings_saved');
+                break;
+
+            case 'create_telegram_pairing':
+                $wp_user_id = absint($_POST['telegram_wp_user_id'] ?? 0);
+                $permissions = isset($_POST['telegram_permissions']) && is_array($_POST['telegram_permissions']) ? wp_unslash($_POST['telegram_permissions']) : [];
+                $code = $this->db->create_telegram_pairing($wp_user_id, $permissions);
+                $this->redirect('feuer-kontaktform-telegram', $code !== '' ? 'telegram_pairing_created' : 'telegram_pairing_failed', $code !== '' ? ['feuer-detail' => $code] : []);
+                break;
+
+            case 'save_telegram_route':
+                $actions = isset($_POST['telegram_route_actions']) && is_array($_POST['telegram_route_actions']) ? wp_unslash($_POST['telegram_route_actions']) : [];
+                $ok = $this->db->save_telegram_route(absint($_POST['telegram_department_id'] ?? 0), absint($_POST['telegram_topic_id'] ?? 0), absint($_POST['telegram_user_id'] ?? 0), $actions);
+                $this->redirect('feuer-kontaktform-telegram', $ok ? 'telegram_route_saved' : 'telegram_route_failed');
                 break;
 
             case 'send_test_mail':
@@ -305,6 +358,21 @@ final class Feuer_Kontaktform_Support_Admin
                 );
                 break;
 
+            case 'start_ticket_work':
+                $ticket_id = absint($_POST['ticket_id'] ?? 0);
+                $ticket = $this->db->get_ticket($ticket_id);
+                $settings = $this->db->get_settings();
+                $result = ['success' => false, 'message' => 'Anfrage wurde nicht gefunden.'];
+                if ($ticket && (string) $ticket['status'] === 'quarantined') {
+                    $result = $this->mailer->send_processing_notice($ticket, $settings);
+                    if (! empty($result['success'])) {
+                        $this->db->update_ticket_workflow($ticket_id, 'in_progress', get_current_user_id(), 'Bearbeitung übernommen; Absender informiert');
+                        $this->db->add_message($ticket_id, 'outbound', (string) $settings['from_email'], (string) $ticket['sender_email'], 'Ihre Anfrage wird jetzt bearbeitet.', ['source' => 'processing_notice', 'actor_id' => get_current_user_id()]);
+                    }
+                }
+                $this->redirect(self::MENU_SLUG, ! empty($result['success']) ? 'ticket_work_started' : 'ticket_work_start_failed', empty($result['success']) ? ['feuer-detail' => (string) $result['message']] : []);
+                break;
+
             case 'resend_department_notification':
                 $ticket_id = absint($_POST['ticket_id'] ?? 0);
                 $ticket = $this->db->get_ticket($ticket_id);
@@ -372,27 +440,29 @@ final class Feuer_Kontaktform_Support_Admin
 
     public function landing_page(): void
     {
-        if ($this->user_has_access('tickets_view')) {
-            $this->tickets_page();
-            return;
+        if (! $this->user_can_open_plugin()) {
+            $this->deny_access();
         }
 
-        if ($this->user_has_access('departments_manage')) {
-            $this->departments_page();
-            return;
-        }
-
-        if ($this->user_has_access('settings_manage')) {
-            $this->settings_page();
-            return;
-        }
-
-        if ($this->user_has_access('logs_view')) {
-            $this->logs_page();
-            return;
-        }
-
-        $this->deny_access();
+        $cards = [
+            ['permission' => 'tickets_view', 'slug' => self::MENU_SLUG, 'icon' => 'dashicons-email-alt', 'tone' => 'red', 'title' => 'Anfragen', 'text' => 'Neue Nachrichten prüfen, beantworten und bearbeiten.'],
+            ['permission' => 'departments_manage', 'slug' => 'feuer-kontaktform-departments', 'icon' => 'dashicons-networking', 'tone' => 'blue', 'title' => 'Abteilungen & Themen', 'text' => 'Zuständigkeiten, Empfänger und Formularfelder verwalten.'],
+            ['permission' => 'settings_manage', 'slug' => 'feuer-kontaktform-settings', 'icon' => 'dashicons-admin-generic', 'tone' => 'violet', 'title' => 'Einstellungen', 'text' => 'E-Mail, Ticket-Postfach, Datenschutz und Spam-Schutz konfigurieren.'],
+            ['permission' => 'settings_manage', 'slug' => 'feuer-kontaktform-telegram', 'icon' => 'dashicons-format-chat', 'tone' => 'cyan', 'title' => 'Telegram', 'text' => 'Bot, Empfänger, Routing und Benachrichtigungen verwalten.'],
+            ['permission' => 'logs_view', 'slug' => 'feuer-kontaktform-logs', 'icon' => 'dashicons-list-view', 'tone' => 'amber', 'title' => 'Protokolle', 'text' => 'Versand, Zugriffe, Fehler und Sicherheitsereignisse nachvollziehen.'],
+        ];
+        ?>
+        <div class="wrap feuer-support-admin feuer-admin-home">
+            <section class="feuer-home-hero"><div><p class="feuer-kicker">Kontaktform · Verwaltung</p><h1>Alles Wichtige auf einen Blick</h1><p>Wählen Sie einen Bereich, um Anfragen sicher und schnell zu bearbeiten.</p></div><span class="dashicons dashicons-sos"></span></section>
+            <div class="feuer-home-grid">
+            <?php foreach ($cards as $card) : ?>
+                <?php if ($this->user_has_access($card['permission'])) : ?>
+                    <a class="feuer-home-card is-<?php echo esc_attr($card['tone']); ?>" href="<?php echo esc_url(admin_url('admin.php?page=' . $card['slug'])); ?>"><span class="dashicons <?php echo esc_attr($card['icon']); ?>"></span><div><h2><?php echo esc_html($card['title']); ?></h2><p><?php echo esc_html($card['text']); ?></p><b>Bereich öffnen <span aria-hidden="true">→</span></b></div></a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+            </div>
+        </div>
+        <?php
     }
 
     public function tickets_page(): void
@@ -446,6 +516,14 @@ final class Feuer_Kontaktform_Support_Admin
                                     <span>Gerät: <strong><?php echo esc_html((string) $ticket['device_type']); ?></strong></span>
                                     <span>Browser: <strong><?php echo esc_html((string) $ticket['browser']); ?></strong></span>
                                 </div>
+                                <?php if ((string) $ticket['status'] === 'quarantined' && $can_reply) : ?>
+                                    <form method="post" class="feuer-ticket-action">
+                                        <?php wp_nonce_field('feuer_support_admin'); ?>
+                                        <input type="hidden" name="feuer_support_action" value="start_ticket_work">
+                                        <input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>">
+                                        <button class="button button-primary">In Bearbeitung übernehmen</button>
+                                    </form>
+                                <?php endif; ?>
                                 <section class="feuer-mail-delivery <?php echo esc_attr($this->delivery_status_class((string) $ticket['delivery_status'])); ?>">
                                     <div>
                                         <small><?php echo (string) ($ticket['origin'] ?? '') === 'direct_email' ? 'E-Mail an den Standard-Empfänger' : 'E-Mail an die Abteilung'; ?></small>
@@ -913,8 +991,8 @@ final class Feuer_Kontaktform_Support_Admin
                             <ul>
                                 <li>From muss ein Postfach des eigenen Domains sein, z.B. <code>kontakt@<?php echo esc_html($report['site_domain']); ?></code>.</li>
                                 <li>Autoantworten werden nie vom E-Mail-Absender des Besuchers verschickt.</li>
-                                <li>SMTP sollte über denselben Domain laufen wie die From-Adresse.</li>
-                                <li>SPF, DKIM und DMARC müssen beim DNS-Provider des Domains gesetzt sein.</li>
+                                <li>SMTP sollte über dieselbe Domain laufen wie die From-Adresse.</li>
+                                <li>SPF, DKIM und DMARC müssen beim DNS-Provider der Domain gesetzt sein.</li>
                                 <li>HTML-Autoantworten sollten wenige Links, keine Scripts, keine Base64-Bilder und keine URL-Shortener enthalten.</li>
                             </ul>
                         </div>
@@ -1066,6 +1144,81 @@ final class Feuer_Kontaktform_Support_Admin
                         <p class="description">Ersetzen Sie <code>/ihre-formularseite/</code> durch die Seite, auf der der Shortcode eingebunden ist.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    public function telegram_page(): void
+    {
+        $this->ensure_access('settings_manage');
+        $settings = $this->db->get_settings();
+        $users = $this->db->get_telegram_users();
+        $routes = $this->db->get_telegram_routes();
+        $departments = $this->db->get_departments(true);
+        $wp_users = get_users(['fields' => ['ID', 'display_name', 'user_email']]);
+        $webhook_url = rest_url('feuer-kontaktform/v1/telegram/webhook');
+        ?>
+        <div class="wrap feuer-support-admin">
+            <h1>Telegram-Arbeitsbereich</h1>
+            <div class="feuer-admin-card">
+                <h2>Bot-Verbindung</h2>
+                <p class="description">Telegram wird nur als geschützter Benachrichtigungs- und Bedienkanal verwendet. Die Anfragen bleiben in WordPress gespeichert.</p>
+                <details class="feuer-telegram-help" open>
+                    <summary>Bot in Telegram erstellen – Anleitung</summary>
+                    <ol>
+                        <li>Öffnen Sie Telegram und suchen Sie nach <strong>@BotFather</strong>.</li>
+                        <li>Senden Sie <code>/newbot</code>, vergeben Sie einen Anzeigenamen und einen Benutzernamen, der auf <code>bot</code> endet.</li>
+                        <li>Kopieren Sie den von @BotFather angezeigten <strong>Bot-Token</strong> und fügen Sie ihn unten ein. Der Token wird verschlüsselt gespeichert und nie wieder angezeigt.</li>
+                        <li>Warten Sie auf die grüne Live-Prüfung, speichern Sie, erzeugen Sie für jeden Mitarbeiter einen Kopplungscode und senden Sie ihn privat mit <code>/start CODE</code> an den Bot.</li>
+                    </ol>
+                </details>
+                <form method="post">
+                    <?php wp_nonce_field('feuer_support_admin'); ?>
+                    <input type="hidden" name="feuer_support_action" value="save_settings">
+                    <input type="hidden" name="telegram_webhook_secret" value="<?php echo esc_attr((string) $settings['telegram_webhook_secret']); ?>">
+                    <p><label class="feuer-check-label"><input type="hidden" name="telegram_enabled" value="0"><input type="checkbox" name="telegram_enabled" value="1" <?php checked(! empty($settings['telegram_enabled'])); ?>> Telegram-Benachrichtigungen aktivieren</label></p>
+                    <p><label>Bot-Token<br><input class="regular-text" type="password" name="telegram_bot_token" value="" autocomplete="new-password" data-telegram-token aria-describedby="feuer-telegram-token-status" placeholder="<?php echo empty($settings['telegram_bot_token']) ? 'Nicht gespeichert' : 'Gespeichert – leer lassen zum Beibehalten'; ?>"><span id="feuer-telegram-token-status" class="description" data-telegram-token-status aria-live="polite">Token einfügen: Die Verbindung wird automatisch geprüft, ohne den Token zu speichern.</span></label></p>
+                    <p><label>Datenschutzmodus<br><select name="telegram_privacy_mode"><option value="summary" <?php selected((string) $settings['telegram_privacy_mode'], 'summary'); ?>>Zusammenfassung mit E-Mail-Adresse</option><option value="masked" <?php selected((string) $settings['telegram_privacy_mode'], 'masked'); ?>>E-Mail-Adresse maskieren</option></select></label></p>
+                    <p><button class="button button-primary">Telegram-Einstellungen speichern</button></p>
+                </form>
+                <h3>Webhook</h3>
+                <p class="description">Diese URL wird nach dem Speichern des Bot-Tokens bei Telegram als HTTPS-Webhook hinterlegt. Das geheime Header-Token wird serverseitig geprüft.</p>
+                <p><code><?php echo esc_html($webhook_url); ?></code></p>
+            </div>
+            <div class="feuer-admin-card">
+                <h2>Gekoppelte Empfänger</h2>
+                <p class="description">Für die erste Kopplung erzeugen Sie einen zeitlich begrenzten Code. Der Mitarbeiter sendet ihn privat mit <code>/start CODE</code> an den Bot; anschließend kann er unten einer Abteilung zugeordnet werden.</p>
+                <?php if ($users === []) : ?>
+                    <p>Noch keine Telegram-Empfänger gekoppelt.</p>
+                <?php else : ?>
+                    <table class="widefat striped"><thead><tr><th>Telegram</th><th>Profil</th><th>Status</th><th>Letzte Aktivität</th></tr></thead><tbody>
+                    <?php foreach ($users as $user) : ?><tr><td><?php echo esc_html((string) $user['display_name']); ?><br><small><?php echo esc_html((string) $user['telegram_user_id']); ?></small></td><td><?php echo esc_html(trim((string) $user['first_name'] . ' ' . (string) $user['last_name']) ?: 'Noch nicht eingerichtet'); ?></td><td><?php echo ! empty($user['is_active']) ? 'Aktiv' : 'Kopplung offen'; ?></td><td><?php echo esc_html((string) $user['last_seen_at']); ?></td></tr><?php endforeach; ?>
+                    </tbody></table>
+                <?php endif; ?>
+                <h3>Empfänger koppeln</h3>
+                <form method="post" class="feuer-form-grid">
+                    <?php wp_nonce_field('feuer_support_admin'); ?>
+                    <input type="hidden" name="feuer_support_action" value="create_telegram_pairing">
+                    <label>WordPress-Benutzer<select name="telegram_wp_user_id" required><option value="">Bitte wählen</option><?php foreach ($wp_users as $wp_user) : ?><option value="<?php echo esc_attr((string) $wp_user->ID); ?>"><?php echo esc_html($wp_user->display_name . ' – ' . $wp_user->user_email); ?></option><?php endforeach; ?></select></label>
+                    <fieldset><legend>Erlaubte Telegram-Aktionen</legend><?php foreach (['open_browser' => 'Im Browser öffnen', 'claim' => 'Übernehmen', 'read' => 'Als gelesen', 'reply' => 'Antworten', 'spam' => 'Als Spam markieren'] as $permission => $label) : ?><label class="feuer-check-label"><input type="checkbox" name="telegram_permissions[]" value="<?php echo esc_attr($permission); ?>" <?php checked($permission !== 'spam'); ?>> <?php echo esc_html($label); ?></label><?php endforeach; ?></fieldset>
+                    <p><button class="button">Kopplungscode erzeugen</button></p>
+                </form>
+                <?php if ((string) ($_GET['feuer-message'] ?? '') === 'telegram_pairing_created') : ?><div class="notice notice-success inline"><p>Kopplungscode: <strong><code><?php echo esc_html((string) wp_unslash($_GET['feuer-detail'] ?? '')); ?></code></strong>. Der Mitarbeiter sendet privat <code>/start CODE</code> an den Bot.</p></div><?php endif; ?>
+            </div>
+            <div class="feuer-admin-card">
+                <h2>Abteilungsrouting</h2>
+                <p class="description">Jede neue Anfrage wird nur an die hier zugeordnete, aktiv gekoppelte Person gesendet.</p>
+                <form method="post" class="feuer-form-grid">
+                    <?php wp_nonce_field('feuer_support_admin'); ?>
+                    <input type="hidden" name="feuer_support_action" value="save_telegram_route">
+                    <label>Abteilung<select name="telegram_department_id" required><option value="">Bitte wählen</option><?php foreach ($departments as $department) : ?><option value="<?php echo esc_attr((string) $department['id']); ?>"><?php echo esc_html((string) $department['name']); ?></option><?php endforeach; ?></select></label>
+                    <label>Telegram-Empfänger<select name="telegram_user_id" required><option value="">Bitte wählen</option><?php foreach ($users as $user) : ?><?php if (! empty($user['is_active'])) : ?><option value="<?php echo esc_attr((string) $user['telegram_user_id']); ?>"><?php echo esc_html((string) $user['display_name']); ?></option><?php endif; ?><?php endforeach; ?></select></label>
+                    <input type="hidden" name="telegram_topic_id" value="0">
+                    <fieldset><legend>Sichtbare Aktionen</legend><?php foreach (['open_browser' => 'Im Browser öffnen', 'claim' => 'Übernehmen', 'read' => 'Als gelesen', 'spam' => 'Als Spam markieren'] as $permission => $label) : ?><label class="feuer-check-label"><input type="checkbox" name="telegram_route_actions[]" value="<?php echo esc_attr($permission); ?>" checked> <?php echo esc_html($label); ?></label><?php endforeach; ?></fieldset>
+                    <p><button class="button">Routing speichern</button></p>
+                </form>
+                <?php if ($routes !== []) : ?><table class="widefat striped"><thead><tr><th>Abteilung</th><th>Empfänger</th><th>Aktionen</th></tr></thead><tbody><?php foreach ($routes as $route) : ?><tr><td><?php echo esc_html((string) $route['department_name']); ?></td><td><?php echo esc_html((string) $route['display_name']); ?></td><td><?php echo esc_html(implode(', ', (array) $route['actions'])); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
             </div>
         </div>
         <?php
@@ -1331,12 +1484,15 @@ final class Feuer_Kontaktform_Support_Admin
             'download_backup',
             'download_tickets_backup',
             'restore_backup' => 'settings_manage',
+            'create_telegram_pairing',
+            'save_telegram_route' => 'settings_manage',
             'save_department',
             'delete_department',
             'move_department',
             'save_topic',
             'delete_topic' => 'departments_manage',
             'reply_ticket',
+            'start_ticket_work',
             'resend_department_notification',
             'revoke_department_access' => 'tickets_reply',
             default => '',
@@ -1874,6 +2030,27 @@ final class Feuer_Kontaktform_Support_Admin
             $recaptcha_secret_key = (string) $defaults['recaptcha_secret_key'];
         }
 
+        $telegram_bot_token = array_key_exists('telegram_bot_token', $source)
+            ? trim((string) wp_unslash($source['telegram_bot_token']))
+            : (string) $defaults['telegram_bot_token'];
+        if ($telegram_bot_token === '') {
+            $telegram_bot_token = (string) $defaults['telegram_bot_token'];
+        }
+        $telegram_webhook_secret = array_key_exists('telegram_webhook_secret', $source)
+            ? trim((string) wp_unslash($source['telegram_webhook_secret']))
+            : (string) $defaults['telegram_webhook_secret'];
+        if ($telegram_webhook_secret === '') {
+            try {
+                $telegram_webhook_secret = bin2hex(random_bytes(24));
+            } catch (Throwable $exception) {
+                $telegram_webhook_secret = (string) $defaults['telegram_webhook_secret'];
+            }
+        }
+        $telegram_privacy_mode = sanitize_key((string) wp_unslash($source['telegram_privacy_mode'] ?? $defaults['telegram_privacy_mode']));
+        if (! in_array($telegram_privacy_mode, ['summary', 'masked'], true)) {
+            $telegram_privacy_mode = 'summary';
+        }
+
         $design_variant = sanitize_key((string) wp_unslash($source['design_variant'] ?? $defaults['design_variant']));
         if (! in_array($design_variant, ['classic', 'clean', 'stepper', 'rail', 'stripe'], true)) {
             $design_variant = 'classic';
@@ -1943,6 +2120,10 @@ final class Feuer_Kontaktform_Support_Admin
             'allowed_file_types' => $this->sanitize_file_types((string) wp_unslash($source['allowed_file_types'] ?? $defaults['allowed_file_types'])),
             'max_upload_mb' => max(1, min(64, absint($source['max_upload_mb'] ?? $defaults['max_upload_mb']))),
             'role_access' => $role_access,
+            'telegram_enabled' => array_key_exists('telegram_enabled', $source) ? (! empty($source['telegram_enabled']) ? 1 : 0) : (int) $defaults['telegram_enabled'],
+            'telegram_bot_token' => $telegram_bot_token,
+            'telegram_webhook_secret' => $telegram_webhook_secret,
+            'telegram_privacy_mode' => $telegram_privacy_mode,
         ];
     }
 
