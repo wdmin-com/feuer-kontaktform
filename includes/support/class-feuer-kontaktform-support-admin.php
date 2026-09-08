@@ -776,6 +776,8 @@ final class Feuer_Kontaktform_Support_Admin
                                         <option value="stepper" <?php selected((string) $settings['design_variant'], 'stepper'); ?>>Schritt-Karten</option>
                                         <option value="rail" <?php selected((string) $settings['design_variant'], 'rail'); ?>>Linke Bewegungsleiste</option>
                                         <option value="stripe" <?php selected((string) $settings['design_variant'], 'stripe'); ?>>Obere Bewegungsleiste</option>
+                                        <option value="cards" <?php selected((string) $settings['design_variant'], 'cards'); ?>>Kontaktkarten mit Dialog</option>
+                                        <option value="faq" <?php selected((string) $settings['design_variant'], 'faq'); ?>>FAQ mit Kontaktübergang</option>
                                     </select>
                                 </label>
                                 <label>
@@ -2052,7 +2054,7 @@ final class Feuer_Kontaktform_Support_Admin
         }
 
         $design_variant = sanitize_key((string) wp_unslash($source['design_variant'] ?? $defaults['design_variant']));
-        if (! in_array($design_variant, ['classic', 'clean', 'stepper', 'rail', 'stripe'], true)) {
+        if (! in_array($design_variant, ['classic', 'clean', 'stepper', 'rail', 'stripe', 'cards', 'faq'], true)) {
             $design_variant = 'classic';
         }
 

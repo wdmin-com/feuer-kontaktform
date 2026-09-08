@@ -158,6 +158,25 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  function openSelection(form, departmentId, topicId) {
+    var departmentInput = form.querySelector('[data-department-input]');
+    var topicInput = form.querySelector('[data-topic-input]');
+    var launcher = form.parentNode.querySelector('[data-contact-launcher]');
+    if (!departmentInput || !topicInput) return;
+    departmentInput.value = String(departmentId || '');
+    topicInput.value = String(topicId || '');
+    renderTopics(form);
+    if (!topicInput.value) {
+      var department = currentDepartment(form);
+      topicInput.value = department && department.topics && department.topics[0] ? String(department.topics[0].id) : '';
+      renderFields(form);
+    }
+    if (launcher) launcher.classList.add('is-complete');
+    form.classList.remove('is-collapsed');
+    showStep(form, topicInput.value ? 3 : 0);
+    window.setTimeout(function () { form.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
+  }
+
   function panels(form) {
     return qsa(form, '.feuer-step');
   }
@@ -373,5 +392,42 @@ document.addEventListener('DOMContentLoaded', function () {
         submit(form);
       }
     });
+  });
+
+  qsa(document, '[data-contact-launcher]').forEach(function (launcher) {
+    var form = launcher.parentNode.querySelector('.feuer-support-form');
+    if (!form) return;
+    var modal = launcher.querySelector('[data-contact-modal]');
+    var modalOptions = modal ? modal.querySelector('[data-contact-modal-options]') : null;
+    var config = getConfig(form);
+    form.classList.add('is-collapsed');
+    qsa(launcher, '[data-open-department]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var departmentId = button.getAttribute('data-open-department');
+        var department = config.find(function (item) { return String(item.id) === String(departmentId); });
+        if (!modal || !modalOptions || !department || !(department.topics || []).length) { openSelection(form, departmentId, ''); return; }
+        modalOptions.innerHTML = '';
+        (department.topics || []).forEach(function (topic) {
+          var option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'feuer-option';
+          option.innerHTML = '<strong></strong><span></span>';
+          option.querySelector('strong').textContent = topic.title || 'Thema';
+          option.querySelector('span').textContent = 'Anfrage zu diesem Thema öffnen';
+          option.addEventListener('click', function () { modal.hidden = true; openSelection(form, departmentId, topic.id); });
+          modalOptions.appendChild(option);
+        });
+        modal.hidden = false;
+        var close = modal.querySelector('[data-contact-modal-close]');
+        if (close) close.focus();
+      });
+    });
+    qsa(launcher, '[data-open-selection]').forEach(function (button) {
+      button.addEventListener('click', function () { openSelection(form, button.getAttribute('data-department-id'), button.getAttribute('data-topic-id') || ''); });
+    });
+    qsa(launcher, '[data-contact-modal-close]').forEach(function (button) {
+      button.addEventListener('click', function () { if (modal) modal.hidden = true; });
+    });
+    if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) modal.hidden = true; });
   });
 });

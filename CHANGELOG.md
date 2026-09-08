@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.2.0] - 2026-09-08
+
+- Neue Darstellungsvariante „Kontaktkarten mit Dialog“: Bereich auswählen, Thema im Popup wählen und direkt zum passenden Eingabefenster wechseln.
+- Neue Darstellungsvariante „FAQ mit Kontaktübergang“: Antworten als zugängliche Akkordeons mit direktem Übergang zur Anfrage.
+- Bestehende Designvarianten und Shortcode-Auswahl bleiben unverändert nutzbar.
+
 ## [3.1.1] - 2026-09-06
 
 - Telegram-Arbeitsbereich um eine deutschsprachige BotFather-Anleitung und eine geschützte Live-Prüfung des Bot-Tokens ergänzt.

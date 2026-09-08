@@ -399,3 +399,13 @@
     grid-column: span 1;
   }
 }
+.feuer-contact-launcher{margin-bottom:24px;padding:clamp(22px,4vw,44px);border:1px solid #d9e2ec;border-radius:22px;background:linear-gradient(145deg,#f9fbfd,#eef5f8);box-shadow:0 14px 34px rgba(31,55,72,.08)}
+.feuer-launcher-intro{max-width:680px;color:#536477}
+.feuer-contact-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:24px}
+.feuer-contact-card{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:190px;padding:22px;text-align:left;border:1px solid #d9e2ec;border-radius:16px;background:#fff;color:#1c2b39;cursor:pointer;box-shadow:0 5px 16px rgba(31,55,72,.05);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.feuer-contact-card:hover,.feuer-contact-card:focus-visible{transform:translateY(-3px);border-color:#b3192b;box-shadow:0 14px 28px rgba(31,55,72,.13)}
+.feuer-contact-card-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#b3192b;color:#fff}
+.feuer-contact-card strong{font-size:17px}.feuer-contact-card span:not(.feuer-contact-card-icon){color:#647487;line-height:1.45}.feuer-contact-card b{margin-top:auto;color:#a0182a;font-size:13px}
+.feuer-contact-modal{position:fixed;z-index:9999;inset:0;display:grid;place-items:center;padding:20px;background:rgba(17,31,44,.58)}.feuer-contact-modal[hidden]{display:none}.feuer-contact-modal-panel{position:relative;width:min(560px,100%);max-height:min(720px,90vh);overflow:auto;padding:30px;border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.24)}.feuer-contact-modal-panel h3{margin-top:4px}.feuer-contact-modal-close{position:absolute;top:10px;right:12px;width:36px;height:36px;border:0;background:transparent;color:#536477;font-size:28px;line-height:1;cursor:pointer}.feuer-contact-modal-options{display:grid;gap:10px;margin-top:20px}
+.feuer-design-cards .feuer-support-form.is-collapsed,.feuer-design-faq .feuer-support-form.is-collapsed{display:none}
+.feuer-faq-list{display:grid;gap:10px;margin-top:22px}.feuer-faq-item{border:1px solid #d9e2ec;border-radius:12px;background:#fff;overflow:hidden}.feuer-faq-item summary{display:flex;justify-content:space-between;gap:16px;padding:17px 19px;font-weight:700;cursor:pointer;list-style:none}.feuer-faq-item summary::-webkit-details-marker{display:none}.feuer-faq-item summary span{color:#b3192b;font-size:20px}.feuer-faq-item[open] summary span{transform:rotate(45deg)}.feuer-faq-answer{padding:0 19px 19px;color:#536477}.feuer-faq-answer p{margin:0 0 14px}

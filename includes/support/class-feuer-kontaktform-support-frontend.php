@@ -196,6 +196,38 @@ final class Feuer_Kontaktform_Support_Frontend
         ob_start();
         ?>
         <div class="feuer-support-shell feuer-design-<?php echo esc_attr($design); ?> feuer-fields-<?php echo esc_attr($field_style); ?><?php echo $quick ? ' is-quick' : ''; ?>">
+            <?php if (in_array($design, ['cards', 'faq'], true) && $direct_department === 0) : ?>
+                <section class="feuer-contact-launcher" data-contact-launcher>
+                    <?php if ($design === 'cards') : ?>
+                        <p class="feuer-kicker">Kontakt aufnehmen</p>
+                        <h2>Wie können wir Ihnen helfen?</h2>
+                        <p class="feuer-launcher-intro">Wählen Sie einen Bereich. Danach öffnet sich direkt das passende Kontaktformular.</p>
+                        <div class="feuer-contact-cards">
+                            <?php foreach ($config as $department) : ?>
+                                <button type="button" class="feuer-contact-card" data-open-department="<?php echo esc_attr((string) $department['id']); ?>">
+                                    <span class="feuer-contact-card-icon" aria-hidden="true">✦</span>
+                                    <strong><?php echo esc_html((string) $department['name']); ?></strong>
+                                    <span><?php echo esc_html((string) ($department['description'] ?: 'Kontakt zur zuständigen Abteilung')); ?></span>
+                                    <b>Kontakt aufnehmen&nbsp; →</b>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="feuer-contact-modal" data-contact-modal hidden role="dialog" aria-modal="true" aria-labelledby="feuer-contact-modal-title"><div class="feuer-contact-modal-panel"><button type="button" class="feuer-contact-modal-close" data-contact-modal-close aria-label="Fenster schließen">×</button><p class="feuer-kicker">Thema auswählen</p><h3 id="feuer-contact-modal-title">Worum geht es?</h3><div class="feuer-contact-modal-options" data-contact-modal-options></div></div></div>
+                    <?php else : ?>
+                        <p class="feuer-kicker">Häufige Fragen</p>
+                        <h2>Womit können wir Ihnen weiterhelfen?</h2>
+                        <p class="feuer-launcher-intro">Lesen Sie zunächst die passende Antwort. Über „Zu diesem Thema schreiben“ gelangen Sie direkt zur Anfrage.</p>
+                        <div class="feuer-faq-list">
+                            <?php foreach ($config as $department) : foreach ((array) ($department['topics'] ?? []) as $topic) : ?>
+                                <details class="feuer-faq-item">
+                                    <summary><?php echo esc_html((string) $topic['title']); ?><span aria-hidden="true">+</span></summary>
+                                    <div class="feuer-faq-answer"><p><?php echo esc_html((string) ($department['description'] ?: 'Wir helfen Ihnen gerne bei diesem Anliegen weiter.')); ?></p><button type="button" class="button-primary" data-open-selection data-department-id="<?php echo esc_attr((string) $department['id']); ?>" data-topic-id="<?php echo esc_attr((string) $topic['id']); ?>">Zu diesem Thema schreiben&nbsp; →</button></div>
+                                </details>
+                            <?php endforeach; endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            <?php endif; ?>
             <form class="feuer-support-form" enctype="multipart/form-data"
                 data-config="<?php echo esc_attr((string) wp_json_encode($config)); ?>"
                 data-ajax-url="<?php echo esc_url(admin_url('admin-ajax.php')); ?>"
