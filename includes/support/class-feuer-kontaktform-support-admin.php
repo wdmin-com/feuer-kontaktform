@@ -1707,7 +1707,7 @@ final class Feuer_Kontaktform_Support_Admin
             <div class="feuer-form-grid">
                 <label>Name<input class="regular-text" type="text" name="department_name" value="<?php echo esc_attr((string) $department['name']); ?>" data-slug-source></label>
                 <label>Kurzname / Slug<input class="regular-text" type="text" name="department_slug" value="<?php echo esc_attr((string) $department['slug']); ?>" data-slug-target></label>
-                <?php $this->input('department_email', 'E-Mail Empfänger', $department['email'], 'email'); ?>
+                <?php $this->input('department_email', 'E-Mail-Empfänger', $department['email'], 'email'); ?>
                 <?php $this->input('department_sort_order', 'Sortierung', $department['sort_order'], 'number'); ?>
             </div>
             <?php if ((string) $department['slug'] !== '') : ?>
@@ -1777,11 +1777,12 @@ final class Feuer_Kontaktform_Support_Admin
                         <span class="description">Plain-Text Fallback für einfache Mailprogramme.</span>
                         <textarea class="large-text code" name="topic_auto_body" rows="11"><?php echo esc_textarea((string) $topic['auto_body']); ?></textarea>
                     </label>
-                    <label>
-                        Autoantwort HTML
-                        <span class="description">Formatierte E-Mail mit Logo, Website-Name und Anfrage Nr.</span>
-                        <textarea class="large-text code" name="topic_auto_html" rows="16"><?php echo esc_textarea((string) ($topic['auto_html'] ?? Feuer_Kontaktform_Support_DB::default_auto_html_body())); ?></textarea>
-                    </label>
+                    <div class="feuer-email-editor" data-email-editor>
+                        <div class="feuer-email-editor-head"><div><strong>Autoantwort HTML</strong><span class="description">HTML-Vorlage mit sicherem Live-Preview. Skripte werden im Preview blockiert.</span></div><div class="feuer-email-editor-tabs" role="tablist"><button type="button" class="button is-active" data-email-editor-mode="code" role="tab">HTML-Code</button><button type="button" class="button" data-email-editor-mode="preview" role="tab">Vorschau</button></div></div>
+                        <textarea class="large-text code" name="topic_auto_html" rows="16" data-email-editor-source><?php echo esc_textarea((string) ($topic['auto_html'] ?? Feuer_Kontaktform_Support_DB::default_auto_html_body())); ?></textarea>
+                        <iframe class="feuer-email-editor-preview" data-email-editor-preview title="Vorschau der HTML-E-Mail" sandbox="" hidden></iframe>
+                        <p class="description">Formatierte E-Mail mit Logo, Website-Name und Anfrage Nr. Platzhalter können über die Schaltflächen unten eingefügt werden.</p>
+                    </div>
                 </div>
                 <?php $this->auto_reply_macro_help(); ?>
                 <label><input type="checkbox" name="topic_is_active" value="1" <?php checked(! empty($topic['is_active'])); ?>> aktiv</label>
@@ -1842,7 +1843,7 @@ final class Feuer_Kontaktform_Support_Admin
             <p class="description">Diese Platzhalter können im Betreff, im Text und in der HTML-Vorlage verwendet werden.</p>
             <div class="feuer-macro-grid">
                 <?php foreach (Feuer_Kontaktform_Support_DB::auto_reply_macros() as $macro => $description) : ?>
-                    <div><code><?php echo esc_html($macro); ?></code><span><?php echo esc_html($description); ?></span></div>
+                    <div><button type="button" class="button feuer-macro-button" data-insert-macro="<?php echo esc_attr($macro); ?>"><?php echo esc_html($macro); ?></button><span><?php echo esc_html($description); ?></span></div>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -1871,7 +1872,7 @@ final class Feuer_Kontaktform_Support_Admin
             'domain_match_text' => $domain_match ? 'From-Domain passt zur Website.' : 'From-Domain weicht von der Website ab.',
             'spf_class' => $this->dns_status_class($spf),
             'spf_text' => $this->dns_status_text($spf, 'SPF-Eintrag gefunden.', 'Kein SPF-Eintrag gefunden.'),
-            'spf_hint' => 'TXT am Domain, z.B. v=spf1 include:mailserver.example -all',
+            'spf_hint' => 'TXT-Eintrag für die Domain, z. B. v=spf1 include:mailserver.example -all',
             'dmarc_class' => $this->dns_status_class($dmarc),
             'dmarc_text' => $this->dns_status_text($dmarc, 'DMARC-Eintrag gefunden.', 'Kein DMARC-Eintrag gefunden.'),
             'dmarc_hint' => 'TXT unter _dmarc.' . ($from_domain !== '' ? $from_domain : 'domain.tld'),

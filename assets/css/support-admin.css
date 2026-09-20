@@ -962,6 +962,7 @@
 .feuer-telegram-help{margin:16px 0;padding:12px 16px;border:1px solid #c5d6e8;border-radius:8px;background:#f4f9ff}
 .feuer-telegram-help summary{cursor:pointer;font-weight:700;color:#174d79}
 .feuer-telegram-help ol{margin:12px 0 4px 20px}
+.feuer-email-editor{padding:16px;border:1px solid var(--feuer-line);border-radius:10px;background:#fbfcfe}.feuer-email-editor-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}.feuer-email-editor-head strong,.feuer-email-editor-head .description{display:block}.feuer-email-editor-tabs{display:flex;gap:6px;flex-shrink:0}.feuer-email-editor-tabs .button.is-active{background:var(--feuer-dark);border-color:var(--feuer-dark);color:#fff}.feuer-email-editor-source{display:block;width:100%;min-height:300px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.feuer-email-editor-preview{display:block;width:100%;height:390px;border:1px solid var(--feuer-line);border-radius:7px;background:#fff}.feuer-macro-button{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;margin-right:6px}.feuer-macro-grid>div{align-items:center}
 [data-telegram-token-status].is-success{color:#157347;font-weight:700}
 [data-telegram-token-status].is-error{color:#b42318;font-weight:700}
 [data-telegram-token-status].is-pending{color:#175cd3;font-weight:700}

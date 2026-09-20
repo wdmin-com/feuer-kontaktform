@@ -162,6 +162,49 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  document.querySelectorAll('[data-email-editor]').forEach(function (editor) {
+    var source = editor.querySelector('[data-email-editor-source]');
+    var preview = editor.querySelector('[data-email-editor-preview]');
+    var modes = editor.querySelectorAll('[data-email-editor-mode]');
+    if (!source || !preview) return;
+    var examples = {
+      '{{site_name}}': 'Freiwillige Feuerwehr Musterstadt', '{{site_url}}': 'https://www.example.de', '{{ticket_id}}': 'AB12CD34',
+      '{{name}}': 'Anna Müller', '{{vorname}}': 'Anna', '{{nachname}}': 'Müller', '{{email}}': 'anna@example.de',
+      '{{telefon}}': '+49 40 123456', '{{department}}': 'Jugendfeuerwehr', '{{topic}}': 'Mitglied werden', '{{subject}}': 'Meine Anfrage'
+    };
+    function renderPreview() {
+      var html = source.value || '<p style="font-family:Arial,sans-serif;padding:24px">Noch kein HTML-Inhalt vorhanden.</p>';
+      Object.keys(examples).forEach(function (macro) { html = html.split(macro).join(examples[macro]); });
+      preview.srcdoc = html;
+    }
+    source.addEventListener('input', renderPreview);
+    modes.forEach(function (mode) {
+      mode.addEventListener('click', function () {
+        var isPreview = mode.getAttribute('data-email-editor-mode') === 'preview';
+        modes.forEach(function (item) { item.classList.toggle('is-active', item === mode); });
+        source.hidden = isPreview;
+        preview.hidden = !isPreview;
+        if (isPreview) renderPreview();
+      });
+    });
+    renderPreview();
+  });
+
+  document.querySelectorAll('[data-insert-macro]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var form = button.closest('[data-topic-form]');
+      var source = form ? form.querySelector('[data-email-editor-source]') : null;
+      if (!source) return;
+      var macro = button.getAttribute('data-insert-macro') || '';
+      var start = source.selectionStart || source.value.length;
+      var end = source.selectionEnd || start;
+      source.value = source.value.slice(0, start) + macro + source.value.slice(end);
+      source.focus();
+      source.setSelectionRange(start + macro.length, start + macro.length);
+      source.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+
   document.querySelectorAll('[data-feuer-tabs]').forEach(function (tabs) {
     var buttons = Array.prototype.slice.call(tabs.querySelectorAll('[data-tab-target]')).filter(function (button) {
       return button.closest('[data-feuer-tabs]') === tabs;

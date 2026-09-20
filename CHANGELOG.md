@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0] - 2026-09-20
+
+- HTML-Editor für Autoantworten mit Umschaltung zwischen HTML-Code und sicherer Live-Vorschau ergänzt.
+- Shortcodes können per Schaltfläche direkt an der Cursorposition eingefügt werden.
+- Vorschau verwendet Beispieldaten und ein sandboxed iframe; Skripte werden nicht ausgeführt.
+- Zwei deutsche Textkorrekturen im Verwaltungsbereich übernommen.
+
 ## [3.2.0] - 2026-09-08
 
 - Neue Darstellungsvariante „Kontaktkarten mit Dialog“: Bereich auswählen, Thema im Popup wählen und direkt zum passenden Eingabefenster wechseln.
