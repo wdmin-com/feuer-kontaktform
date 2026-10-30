@@ -270,6 +270,12 @@ final class Feuer_Kontaktform_Support_Admin
                     'slug' => wp_unslash($_POST['department_slug'] ?? ''),
                     'email' => wp_unslash($_POST['department_email'] ?? ''),
                     'description' => wp_unslash($_POST['department_description'] ?? ''),
+                    'contact_name' => wp_unslash($_POST['contact_name'] ?? ''),
+                    'contact_phone' => wp_unslash($_POST['contact_phone'] ?? ''),
+                    'contact_area' => wp_unslash($_POST['contact_area'] ?? ''),
+                    'contact_description' => wp_unslash($_POST['contact_description'] ?? ''),
+                    'contact_public' => ! empty($_POST['contact_public']),
+                    'contact_visibility' => wp_unslash($_POST['contact_visibility'] ?? 'protected'),
                     'sort_order' => absint($_POST['department_sort_order'] ?? 0),
                     'is_active' => ! empty($_POST['department_is_active']),
                 ]);
@@ -1698,7 +1704,7 @@ final class Feuer_Kontaktform_Support_Admin
 
     private function department_form(?array $department = null): void
     {
-        $department = $department ?? ['id' => 0, 'name' => '', 'slug' => '', 'email' => '', 'description' => '', 'sort_order' => 0, 'is_active' => true];
+        $department = $department ?? ['id' => 0, 'name' => '', 'slug' => '', 'email' => '', 'description' => '', 'contact_name' => '', 'contact_phone' => '', 'contact_area' => '', 'contact_description' => '', 'contact_public' => false, 'contact_visibility' => 'protected', 'sort_order' => 0, 'is_active' => true];
         ?>
         <form method="post" class="feuer-inline-form">
             <?php wp_nonce_field('feuer_support_admin'); ?>
@@ -1714,6 +1720,13 @@ final class Feuer_Kontaktform_Support_Admin
                 <p class="description">Direkt-Link zu dieser Abteilung: <code><?php echo esc_html($this->frontend_link_example(['feuer_department' => (string) $department['slug']])); ?></code></p>
             <?php endif; ?>
             <label>Beschreibung<textarea class="large-text" name="department_description" rows="2"><?php echo esc_textarea((string) $department['description']); ?></textarea></label>
+            <fieldset class="feuer-contact-publish-settings"><legend>Ansprechpartner veröffentlichen</legend>
+                <p class="description">Diese Daten werden nur angezeigt, wenn die Veröffentlichung freigegeben ist. Bei „Geschützt“ bleiben E-Mail und Telefon aus dem HTML und werden erst nach einer Sicherheitsfrage geladen.</p>
+                <div class="feuer-form-grid"><label>Name<input class="regular-text" type="text" name="contact_name" value="<?php echo esc_attr((string) ($department['contact_name'] ?? '')); ?>"></label><label>Telefon<input class="regular-text" type="tel" name="contact_phone" value="<?php echo esc_attr((string) ($department['contact_phone'] ?? '')); ?>"></label><label>Bereich<input class="regular-text" type="text" name="contact_area" value="<?php echo esc_attr((string) ($department['contact_area'] ?? '')); ?>"></label></div>
+                <label>Beschreibung des Ansprechpartners<textarea class="large-text" name="contact_description" rows="3"><?php echo esc_textarea((string) ($department['contact_description'] ?? '')); ?></textarea></label>
+                <label>Anzeige der Kontaktdaten<select name="contact_visibility"><option value="protected" <?php selected((string) ($department['contact_visibility'] ?? 'protected'), 'protected'); ?>>Geschützt nach Sicherheitsprüfung</option><option value="public" <?php selected((string) ($department['contact_visibility'] ?? 'protected'), 'public'); ?>>Direkt öffentlich anzeigen</option></select></label>
+                <label class="feuer-check-label"><input type="checkbox" name="contact_public" value="1" <?php checked(! empty($department['contact_public'])); ?>> Veröffentlichung für Besucher freigeben</label>
+            </fieldset>
             <label><input type="checkbox" name="department_is_active" value="1" <?php checked(! empty($department['is_active'])); ?>> aktiv</label>
             <p><button class="button button-primary">Abteilung speichern</button></p>
         </form>

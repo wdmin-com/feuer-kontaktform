@@ -25,8 +25,11 @@ final class Feuer_Kontaktform_Support_Frontend
         add_shortcode('feuer-kontaktform-schnell', [$this, 'quick_shortcode']);
         add_shortcode('feuer-kontaktform-formular', [$this, 'shortcode']);
         add_shortcode('feuer-kontaktform-alle', [$this, 'shortcode']);
+        add_shortcode('feuer-kontaktform-ansprechpartner', [$this, 'contacts_shortcode']);
         add_action('wp_ajax_feuer_support_submit_ticket', [$this, 'submit_ajax']);
         add_action('wp_ajax_nopriv_feuer_support_submit_ticket', [$this, 'submit_ajax']);
+        add_action('wp_ajax_feuer_contact_reveal', [$this, 'reveal_contact']);
+        add_action('wp_ajax_nopriv_feuer_contact_reveal', [$this, 'reveal_contact']);
     }
 
     public function register_assets(): void
@@ -43,6 +46,65 @@ final class Feuer_Kontaktform_Support_Frontend
     public function quick_shortcode(array $atts = []): string
     {
         return $this->render($atts, true);
+    }
+
+    public function contacts_shortcode(): string
+    {
+        $contacts = $this->db->get_public_contacts();
+        if ($contacts === []) {
+            return '<p class="feuer-contacts-empty">Derzeit sind keine Ansprechpartner zur Veröffentlichung freigegeben.</p>';
+        }
+        wp_enqueue_style('feuer-kontaktform-support-frontend');
+        wp_enqueue_script('feuer-kontaktform-support-frontend');
+        $captcha = $this->create_captcha();
+        ob_start();
+        ?>
+        <section class="feuer-contacts-directory" data-contacts-directory data-ajax-url="<?php echo esc_url(admin_url('admin-ajax.php')); ?>" data-nonce="<?php echo esc_attr(wp_create_nonce('feuer_contact_reveal')); ?>" data-captcha-token="<?php echo esc_attr($captcha['token']); ?>">
+            <div class="feuer-contacts-grid">
+            <?php foreach ($contacts as $contact) : ?>
+                <article class="feuer-contact-person">
+                    <div class="feuer-contact-person-head"><span class="feuer-contact-avatar" aria-hidden="true"><?php echo esc_html(strtoupper(substr((string) ($contact['name'] ?: $contact['department_name']), 0, 1))); ?></span><div><h3><?php echo esc_html((string) ($contact['name'] ?: $contact['department_name'])); ?></h3><p><?php echo esc_html((string) ($contact['area'] ?: $contact['department_name'])); ?></p></div></div>
+                    <?php if ((string) $contact['description'] !== '') : ?><p class="feuer-contact-person-description"><?php echo esc_html((string) $contact['description']); ?></p><?php endif; ?>
+                    <div class="feuer-contact-actions">
+                        <a class="button-primary" href="<?php echo esc_url(add_query_arg(['feuer_department' => $contact['department_slug']], get_permalink())); ?>">Kontakt aufnehmen</a>
+                        <?php if ((string) $contact['visibility'] === 'public' && ((string) $contact['email'] !== '' || (string) $contact['phone'] !== '')) : ?>
+                            <?php if ((string) $contact['email'] !== '') : ?><a class="button-secondary" href="mailto:<?php echo esc_attr((string) $contact['email']); ?>">E-Mail</a><?php endif; ?>
+                            <?php if ((string) $contact['phone'] !== '') : ?><a class="button-secondary" href="tel:<?php echo esc_attr((string) $contact['phone']); ?>">Telefon</a><?php endif; ?>
+                        <?php elseif ((string) $contact['visibility'] === 'protected') : ?>
+                            <button type="button" class="button-secondary" data-reveal-contact data-contact-id="<?php echo esc_attr((string) $contact['id']); ?>">Kontaktdaten anzeigen</button>
+                        <?php endif; ?>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+            </div>
+            <div class="feuer-contact-reveal" data-contact-reveal hidden><p class="feuer-kicker">Sicherheitsprüfung</p><p data-reveal-question><?php echo esc_html($captcha['question']); ?></p><input type="number" data-reveal-answer inputmode="numeric" placeholder="Antwort"><input type="text" data-reveal-honeypot tabindex="-1" autocomplete="off" aria-hidden="true"><button type="button" class="button-primary" data-reveal-submit>Kontaktdaten anzeigen</button><p class="feuer-contact-reveal-error" data-reveal-error aria-live="polite"></p></div>
+        </section>
+        <?php
+        return (string) ob_get_clean();
+    }
+
+    public function reveal_contact(): void
+    {
+        if (! check_ajax_referer('feuer_contact_reveal', 'nonce', false)) {
+            wp_send_json_error(['message' => 'Sicherheitsprüfung fehlgeschlagen.'], 403);
+        }
+        $user_agent = strtolower((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        if ($user_agent !== '' && preg_match('/bot|crawler|spider|slurp|bingpreview|facebookexternalhit|headless|preview/i', $user_agent)) {
+            wp_send_json_error(['message' => 'Für automatisierte Abrufe sind Kontaktdaten nicht verfügbar.'], 403);
+        }
+        if (trim((string) wp_unslash($_POST['honeypot'] ?? '')) !== '') {
+            wp_send_json_error(['message' => 'Die Anfrage konnte nicht verarbeitet werden.'], 400);
+        }
+        $token = sanitize_text_field((string) wp_unslash($_POST['captcha_token'] ?? ''));
+        $answer = sanitize_text_field((string) wp_unslash($_POST['captcha_answer'] ?? ''));
+        if (! $this->validate_captcha($token, $answer)) {
+            wp_send_json_error(['message' => 'Bitte lösen Sie die Sicherheitsfrage korrekt.'], 400);
+        }
+        $department = $this->db->get_department(absint($_POST['contact_id'] ?? 0));
+        if (! $department || empty($department['contact_public']) || (string) ($department['contact_visibility'] ?? '') !== 'protected') {
+            wp_send_json_error(['message' => 'Diese Kontaktdaten sind nicht verfügbar.'], 404);
+        }
+        wp_send_json_success(['name' => (string) $department['contact_name'], 'email' => (string) $department['email'], 'phone' => (string) $department['contact_phone']]);
     }
 
     public function submit_ajax(): void
@@ -196,6 +258,9 @@ final class Feuer_Kontaktform_Support_Frontend
         ob_start();
         ?>
         <div class="feuer-support-shell feuer-design-<?php echo esc_attr($design); ?> feuer-fields-<?php echo esc_attr($field_style); ?><?php echo $quick ? ' is-quick' : ''; ?>">
+            <?php if ($direct_department === 0 && ! in_array($design, ['cards', 'faq'], true) && $this->db->get_public_contacts() !== []) : ?>
+                <?php echo $this->contacts_shortcode(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- shortcode returns escaped markup. ?>
+            <?php endif; ?>
             <?php if (in_array($design, ['cards', 'faq'], true) && $direct_department === 0) : ?>
                 <section class="feuer-contact-launcher" data-contact-launcher>
                     <?php if ($design === 'cards') : ?>

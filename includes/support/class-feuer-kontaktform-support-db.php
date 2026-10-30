@@ -171,6 +171,12 @@ final class Feuer_Kontaktform_Support_DB
             slug varchar(120) NOT NULL,
             email varchar(255) NOT NULL,
             description text NULL,
+            contact_name varchar(190) NOT NULL DEFAULT '',
+            contact_phone varchar(100) NOT NULL DEFAULT '',
+            contact_area varchar(190) NOT NULL DEFAULT '',
+            contact_description text NULL,
+            contact_public tinyint(1) NOT NULL DEFAULT 0,
+            contact_visibility varchar(20) NOT NULL DEFAULT 'protected',
             sort_order int(11) NOT NULL DEFAULT 0,
             is_active tinyint(1) NOT NULL DEFAULT 1,
             created_at datetime NOT NULL,
@@ -674,6 +680,32 @@ final class Feuer_Kontaktform_Support_DB
         return is_array($row) ? $this->hydrate_department($row) : null;
     }
 
+    public function get_public_contacts(): array
+    {
+        $contacts = [];
+        foreach ($this->get_departments(true) as $department) {
+            if (empty($department['contact_public'])) {
+                continue;
+            }
+            $visibility = in_array((string) ($department['contact_visibility'] ?? 'protected'), ['public', 'protected'], true)
+                ? (string) $department['contact_visibility']
+                : 'protected';
+            $contacts[] = [
+                'id' => (int) $department['id'],
+                'name' => (string) $department['contact_name'],
+                'phone' => $visibility === 'public' ? (string) $department['contact_phone'] : '',
+                'area' => (string) $department['contact_area'],
+                'description' => (string) $department['contact_description'],
+                'visibility' => $visibility,
+                'department_id' => (int) $department['id'],
+                'department_name' => (string) $department['name'],
+                'department_slug' => (string) $department['slug'],
+                'email' => $visibility === 'public' ? (string) $department['email'] : '',
+            ];
+        }
+        return $contacts;
+    }
+
     public function save_department(array $data): array
     {
         global $wpdb;
@@ -733,6 +765,12 @@ final class Feuer_Kontaktform_Support_DB
             'slug' => $slug,
             'email' => $email,
             'description' => sanitize_textarea_field((string) ($data['description'] ?? '')),
+            'contact_name' => sanitize_text_field((string) ($data['contact_name'] ?? '')),
+            'contact_phone' => sanitize_text_field((string) ($data['contact_phone'] ?? '')),
+            'contact_area' => sanitize_text_field((string) ($data['contact_area'] ?? '')),
+            'contact_description' => sanitize_textarea_field((string) ($data['contact_description'] ?? '')),
+            'contact_public' => empty($data['contact_public']) ? 0 : 1,
+            'contact_visibility' => in_array((string) ($data['contact_visibility'] ?? 'protected'), ['public', 'protected'], true) ? (string) $data['contact_visibility'] : 'protected',
             'sort_order' => $sort_order,
             'is_active' => empty($data['is_active']) ? 0 : 1,
             'updated_at' => $now,
@@ -1661,7 +1699,7 @@ final class Feuer_Kontaktform_Support_DB
         $wpdb->query('START TRANSACTION');
 
         if (
-            ! $this->replace_table_rows($this->departments_table, $departments, ['id', 'name', 'slug', 'email', 'description', 'sort_order', 'is_active', 'created_at', 'updated_at'])
+            ! $this->replace_table_rows($this->departments_table, $departments, ['id', 'name', 'slug', 'email', 'description', 'contact_name', 'contact_phone', 'contact_area', 'contact_description', 'contact_public', 'contact_visibility', 'sort_order', 'is_active', 'created_at', 'updated_at'])
             || ! $this->replace_table_rows($this->topics_table, $topics, ['id', 'department_id', 'title', 'slug', 'email_override', 'auto_reply_enabled', 'auto_reply_format', 'auto_subject', 'auto_body', 'auto_html', 'fields_json', 'sort_order', 'is_active', 'created_at', 'updated_at'])
             || ! $this->replace_table_rows($this->tickets_table, $tickets, ['id', 'ticket_code', 'origin', 'department_id', 'topic_id', 'subject', 'sender_name', 'sender_email', 'sender_phone', 'message', 'fields_json', 'status', 'delivery_status', 'delivery_recipient', 'delivery_attempts', 'delivery_last_error', 'delivery_last_attempt_at', 'delivery_accepted_at', 'delivery_confirmed_at', 'access_token_hash', 'access_recipient', 'access_expires_at', 'access_last_used_at', 'access_revoked_at', 'privacy_required', 'privacy_accepted', 'privacy_version', 'privacy_url', 'consent_text', 'ip_address', 'visitor_cookie', 'browser', 'device_type', 'user_agent', 'captcha_required', 'created_at', 'updated_at'])
             || ! $this->replace_table_rows($this->messages_table, $messages, ['id', 'ticket_id', 'direction', 'source', 'external_id', 'from_email', 'to_email', 'body', 'raw_json', 'created_at'])

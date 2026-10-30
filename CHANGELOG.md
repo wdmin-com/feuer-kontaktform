@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.4.0] - 2026-10-30
+
+- Öffentliche Ansprechpartner werden automatisch als übersichtliche Kontaktkarten auf der Kontaktstrecke angezeigt.
+- Abteilungen können Name, Telefon, Bereich und eine ausführliche Beschreibung für den Ansprechpartner hinterlegen.
+- Kontaktkarten bieten direkte Aktionen für Formular, E-Mail und Telefon.
+- Kontaktdaten lassen sich pro Abteilung öffentlich oder geschützt veröffentlichen.
+- Geschützte Kontaktdaten werden erst nach einer Sicherheitsprüfung für echte Besucher freigegeben und bleiben für Crawler verborgen.
+- Sicherungen und Wiederherstellungen berücksichtigen die neuen Ansprechpartner-Felder.
+
 ## [3.3.0] - 2026-09-20
 
 - HTML-Editor für Autoantworten mit Umschaltung zwischen HTML-Code und sicherer Live-Vorschau ergänzt.

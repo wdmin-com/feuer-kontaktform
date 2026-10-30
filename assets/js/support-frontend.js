@@ -394,6 +394,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  qsa(document, '[data-contacts-directory]').forEach(function (directory) {
+    var revealBox = directory.querySelector('[data-contact-reveal]');
+    var currentId = '';
+    qsa(directory, '[data-reveal-contact]').forEach(function (button) {
+      button.addEventListener('click', function () { currentId = button.getAttribute('data-contact-id') || ''; revealBox.hidden = false; revealBox.querySelector('[data-reveal-answer]').focus(); });
+    });
+    var submit = revealBox ? revealBox.querySelector('[data-reveal-submit]') : null;
+    if (submit) submit.addEventListener('click', function () {
+      var body = new URLSearchParams(); body.set('action', 'feuer_contact_reveal'); body.set('nonce', directory.getAttribute('data-nonce') || ''); body.set('contact_id', currentId); body.set('captcha_token', directory.getAttribute('data-captcha-token') || ''); body.set('captcha_answer', revealBox.querySelector('[data-reveal-answer]').value); body.set('honeypot', revealBox.querySelector('[data-reveal-honeypot]').value);
+      fetch(directory.getAttribute('data-ajax-url'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() }).then(function (response) { return response.json(); }).then(function (result) { var error = revealBox.querySelector('[data-reveal-error]'); if (!result.success) { error.textContent = result.data && result.data.message ? result.data.message : 'Sicherheitsprüfung fehlgeschlagen.'; return; } var card = directory.querySelector('[data-contact-id="' + currentId + '"]'); if (card) { var actions = card.closest('.feuer-contact-person').querySelector('.feuer-contact-actions'); var data = result.data || {}; actions.insertAdjacentHTML('beforeend', (data.email ? '<a class="button-secondary" href="mailto:' + encodeURIComponent(data.email) + '">E-Mail</a>' : '') + (data.phone ? '<a class="button-secondary" href="tel:' + encodeURIComponent(data.phone) + '">Telefon</a>' : '')); card.remove(); } revealBox.hidden = true; }).catch(function () { revealBox.querySelector('[data-reveal-error]').textContent = 'Die Sicherheitsprüfung konnte nicht ausgeführt werden.'; });
+    });
+  });
+
   qsa(document, '[data-contact-launcher]').forEach(function (launcher) {
     var form = launcher.parentNode.querySelector('.feuer-support-form');
     if (!form) return;
