@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.2] - 2026-10-30
+
+- Startseite der Verwaltung kompakter und klarer gegliedert.
+- Hero-Bereich und Schnellzugriffskarten nehmen weniger vertikalen Raum ein.
+- Der Menüpunkt „Anfragen“ verwendet jetzt einen eigenen Slug, damit die Startseite nicht durch die Ticketliste ersetzt wird.
+- Interne Such-, Aktions- und Dashboard-Links für Anfragen auf den neuen Slug aktualisiert.
+
 ## [3.4.1] - 2026-10-30
 
 - Verwaltungsbereich auf eine ruhige Schwarz-Weiß-Graupalette umgestellt.

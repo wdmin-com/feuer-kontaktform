@@ -9,6 +9,7 @@ if (! defined('ABSPATH')) {
 final class Feuer_Kontaktform_Support_Admin
 {
     private const MENU_SLUG = 'feuer-kontaktform';
+    private const TICKETS_SLUG = 'feuer-kontaktform-tickets';
     private bool $registered = false;
     private bool $tickets_page_rendered = false;
 
@@ -91,7 +92,7 @@ final class Feuer_Kontaktform_Support_Admin
         add_menu_page('Kontaktform', 'Kontaktform', 'read', self::MENU_SLUG, [$this, 'landing_page'], 'dashicons-sos', 56);
 
         if ($this->user_has_access('tickets_view')) {
-            add_submenu_page(self::MENU_SLUG, 'Anfragen', 'Anfragen', 'read', self::MENU_SLUG, [$this, 'tickets_page']);
+            add_submenu_page(self::MENU_SLUG, 'Anfragen', 'Anfragen', 'read', self::TICKETS_SLUG, [$this, 'tickets_page']);
         }
 
         if ($this->user_has_access('departments_manage')) {
@@ -358,7 +359,7 @@ final class Feuer_Kontaktform_Support_Admin
                 }
 
                 $this->redirect(
-                    self::MENU_SLUG,
+                    self::TICKETS_SLUG,
                     $ok ? 'ticket_reply_sent' : 'ticket_reply_failed',
                     $ok ? [] : ['feuer-detail' => (string) ($result['message'] ?? '')]
                 );
@@ -376,7 +377,7 @@ final class Feuer_Kontaktform_Support_Admin
                         $this->db->add_message($ticket_id, 'outbound', (string) $settings['from_email'], (string) $ticket['sender_email'], 'Ihre Anfrage wird jetzt bearbeitet.', ['source' => 'processing_notice', 'actor_id' => get_current_user_id()]);
                     }
                 }
-                $this->redirect(self::MENU_SLUG, ! empty($result['success']) ? 'ticket_work_started' : 'ticket_work_start_failed', empty($result['success']) ? ['feuer-detail' => (string) $result['message']] : []);
+                $this->redirect(self::TICKETS_SLUG, ! empty($result['success']) ? 'ticket_work_started' : 'ticket_work_start_failed', empty($result['success']) ? ['feuer-detail' => (string) $result['message']] : []);
                 break;
 
             case 'resend_department_notification':
@@ -427,7 +428,7 @@ final class Feuer_Kontaktform_Support_Admin
                 }
 
                 $this->redirect(
-                    self::MENU_SLUG,
+                    self::TICKETS_SLUG,
                     ! empty($result['success']) ? 'ticket_notification_resent' : 'ticket_notification_failed',
                     ! empty($result['success']) ? [] : ['feuer-detail' => (string) ($result['message'] ?? '')]
                 );
@@ -437,7 +438,7 @@ final class Feuer_Kontaktform_Support_Admin
                 $ticket_id = absint($_POST['ticket_id'] ?? 0);
                 $revoked = $ticket_id > 0 && $this->db->revoke_department_access($ticket_id);
                 $this->redirect(
-                    self::MENU_SLUG,
+                    self::TICKETS_SLUG,
                     $revoked ? 'ticket_access_revoked' : 'ticket_access_revoke_failed'
                 );
                 break;
@@ -451,7 +452,7 @@ final class Feuer_Kontaktform_Support_Admin
         }
 
         $cards = [
-            ['permission' => 'tickets_view', 'slug' => self::MENU_SLUG, 'icon' => 'dashicons-email-alt', 'tone' => 'red', 'title' => 'Anfragen', 'text' => 'Neue Nachrichten prüfen, beantworten und bearbeiten.'],
+            ['permission' => 'tickets_view', 'slug' => self::TICKETS_SLUG, 'icon' => 'dashicons-email-alt', 'tone' => 'red', 'title' => 'Anfragen', 'text' => 'Neue Nachrichten prüfen, beantworten und bearbeiten.'],
             ['permission' => 'departments_manage', 'slug' => 'feuer-kontaktform-departments', 'icon' => 'dashicons-networking', 'tone' => 'blue', 'title' => 'Abteilungen & Themen', 'text' => 'Zuständigkeiten, Empfänger und Formularfelder verwalten.'],
             ['permission' => 'settings_manage', 'slug' => 'feuer-kontaktform-settings', 'icon' => 'dashicons-admin-generic', 'tone' => 'violet', 'title' => 'Einstellungen', 'text' => 'E-Mail, Ticket-Postfach, Datenschutz und Spam-Schutz konfigurieren.'],
             ['permission' => 'settings_manage', 'slug' => 'feuer-kontaktform-telegram', 'icon' => 'dashicons-format-chat', 'tone' => 'cyan', 'title' => 'Telegram', 'text' => 'Bot, Empfänger, Routing und Benachrichtigungen verwalten.'],
@@ -494,10 +495,10 @@ final class Feuer_Kontaktform_Support_Admin
                 </div>
                 <div class="feuer-section-body">
                 <form method="get" class="feuer-search-row">
-                    <input type="hidden" name="page" value="<?php echo esc_attr(self::MENU_SLUG); ?>">
+                    <input type="hidden" name="page" value="<?php echo esc_attr(self::TICKETS_SLUG); ?>">
                     <input class="regular-text" type="search" name="feuer_search" value="<?php echo esc_attr($search); ?>" placeholder="E-Mail, Name oder Anfrage Nr.">
                     <button class="button">Suchen</button>
-                    <?php if ($search !== '') : ?><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=' . self::MENU_SLUG)); ?>">Zurücksetzen</a><?php endif; ?>
+                    <?php if ($search !== '') : ?><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=' . self::TICKETS_SLUG)); ?>">Zurücksetzen</a><?php endif; ?>
                 </form>
                 <div class="feuer-ticket-list">
                     <?php if ($tickets === []) : ?>
@@ -1295,7 +1296,7 @@ final class Feuer_Kontaktform_Support_Admin
 
         echo '<ul class="feuer-dashboard-ticket-list">';
         foreach ($tickets as $ticket) {
-            $url = admin_url('admin.php?page=' . self::MENU_SLUG . '&feuer_search=' . rawurlencode((string) $ticket['ticket_code']));
+            $url = admin_url('admin.php?page=' . self::TICKETS_SLUG . '&feuer_search=' . rawurlencode((string) $ticket['ticket_code']));
             echo '<li><a href="' . esc_url($url) . '"><strong>' . esc_html((string) $ticket['ticket_code']) . '</strong></a> ';
             $dashboard_subject = (string) ($ticket['subject'] ?? '');
             if ($dashboard_subject === '') {
@@ -1308,7 +1309,7 @@ final class Feuer_Kontaktform_Support_Admin
             echo '<br><small>' . esc_html((string) $ticket['created_at']) . ' · ' . esc_html((string) $ticket['sender_name']) . '</small></li>';
         }
         echo '</ul>';
-        echo '<p><a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=' . self::MENU_SLUG)) . '">Alle Anfragen öffnen</a></p>';
+        echo '<p><a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=' . self::TICKETS_SLUG)) . '">Alle Anfragen öffnen</a></p>';
     }
 
     private function log_action_label(string $action): string
