@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.1] - 2026-10-30
+
+- Verwaltungsbereich auf eine ruhige Schwarz-Weiß-Graupalette umgestellt.
+- Farbe wird nur noch für Warnungen, Fehler, Erfolge und Statusmeldungen verwendet.
+- Dekorative Farbakzente der Startkarten und des Hero-Bereichs entfernt.
+- Nicht vorhandene CSS-Variable `--feuer-dark` durch den vorhandenen neutralen Texttoken ersetzt.
+
 ## [3.4.0] - 2026-10-30
 
 - Öffentliche Ansprechpartner werden automatisch als übersichtliche Kontaktkarten auf der Kontaktstrecke angezeigt.
