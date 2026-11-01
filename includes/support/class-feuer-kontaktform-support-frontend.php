@@ -35,6 +35,7 @@ final class Feuer_Kontaktform_Support_Frontend
     public function register_assets(): void
     {
         wp_register_style('feuer-kontaktform-support-frontend', FEUER_KONTAKTFORM_URL . 'assets/css/support-frontend.css', [], FEUER_KONTAKTFORM_VERSION);
+        wp_register_style('feuer-kontaktform-support-frontend-design', FEUER_KONTAKTFORM_URL . 'assets/css/support-frontend-design.css', ['feuer-kontaktform-support-frontend'], FEUER_KONTAKTFORM_VERSION);
         wp_register_script('feuer-kontaktform-support-frontend', FEUER_KONTAKTFORM_URL . 'assets/js/support-frontend.js', [], FEUER_KONTAKTFORM_VERSION, true);
     }
 
@@ -55,6 +56,7 @@ final class Feuer_Kontaktform_Support_Frontend
             return '<p class="feuer-contacts-empty">Derzeit sind keine Ansprechpartner zur Veröffentlichung freigegeben.</p>';
         }
         wp_enqueue_style('feuer-kontaktform-support-frontend');
+        wp_enqueue_style('feuer-kontaktform-support-frontend-design');
         wp_enqueue_script('feuer-kontaktform-support-frontend');
         $captcha = $this->create_captcha();
         ob_start();
@@ -241,6 +243,7 @@ final class Feuer_Kontaktform_Support_Frontend
         }
 
         wp_enqueue_style('feuer-kontaktform-support-frontend');
+        wp_enqueue_style('feuer-kontaktform-support-frontend-design');
         wp_enqueue_script('feuer-kontaktform-support-frontend');
 
         $captcha = $this->create_captcha();

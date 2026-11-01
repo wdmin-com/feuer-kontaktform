@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.5.0] - 2026-11-01
+
+- Anfragen lassen sich vor dem Öffnen direkt als Spam markieren, archivieren oder in den Papierkorb verschieben.
+- Massenaktionen für Spam, Papierkorb, Archiv und Wiederherstellung ergänzt.
+- Filter nach Abteilung, Thema, Zuständigkeit und Zeitraum sowie Sortierung nach Eingangsdatum ergänzt.
+- Anfragen können Teammitgliedern zugewiesen und mit privaten internen Notizen versehen werden.
+- Archivansicht mit Wiederherstellung ergänzt.
+- E-Mail-Benachrichtigungen für neue Anfragen mit frei wählbaren WordPress-Empfängern ergänzt; Nachrichtentexte werden nicht mitgesendet.
+- Sicherungen enthalten Zuständigkeiten und interne Notizen.
+
+
+## [3.4.5] - 2026-11-01
+
+- Release-Version synchronisiert.
+
 ## [3.4.2] - 2026-10-30
 
 - Startseite der Verwaltung kompakter und klarer gegliedert.

@@ -72,7 +72,7 @@ final class Feuer_Kontaktform_Support_Telegram
     {
         $settings = $this->db->get_settings();
         $ticket = $this->db->get_ticket($ticket_id);
-        if (empty($settings['telegram_enabled']) || empty($settings['telegram_bot_token']) || ! $ticket || in_array((string) $ticket['status'], ['spam', 'quarantined'], true)) {
+        if (empty($settings['telegram_enabled']) || empty($settings['telegram_bot_token']) || ! $ticket || in_array((string) $ticket['status'], ['spam', 'quarantined', 'trash'], true)) {
             return;
         }
 
@@ -149,7 +149,7 @@ final class Feuer_Kontaktform_Support_Telegram
         }
         $ticket = $this->db->get_ticket((int) $action['ticket_id']);
         $user = $this->db->get_telegram_user($telegram_id);
-        if (! $ticket || ! $user) {
+        if (! $ticket || ! $user || in_array((string) $ticket['status'], ['spam', 'trash'], true)) {
             $this->answer_callback($callback_id, 'Die Anfrage wurde nicht gefunden.', true, $settings);
             return;
         }

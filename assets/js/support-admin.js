@@ -334,4 +334,12 @@ document.addEventListener('DOMContentLoaded', function () {
       }, 650);
     });
   });
+
+  document.querySelectorAll('form[data-feuer-confirm]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      if (!window.confirm(form.getAttribute('data-feuer-confirm') || 'Aktion ausführen?')) {
+        event.preventDefault();
+      }
+    });
+  });
 });

@@ -145,7 +145,7 @@ final class Feuer_Kontaktform_Support_Inbound
 
         $ticket = $this->db->get_ticket_by_code($ticket_code);
 
-        if (! $ticket) {
+        if (! $ticket || in_array((string) $ticket['status'], ['spam', 'trash'], true)) {
             $this->mark_ignored($stream, $message_number, 'Anfrage wurde nicht gefunden', $subject, $sender);
             return ['status' => 'ignored'];
         }

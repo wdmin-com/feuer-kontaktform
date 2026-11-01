@@ -86,7 +86,7 @@ function Should-Exclude {
     }
 
     if ($relative.StartsWith('assets/css/', [System.StringComparison]::OrdinalIgnoreCase) -and
-        $File.Name -notin @('support-admin.css', 'support-frontend.css')) {
+        $File.Name -notin @('support-admin.css', 'support-frontend.css', 'support-admin-design.css', 'support-frontend-design.css')) {
         return $true
     }
 

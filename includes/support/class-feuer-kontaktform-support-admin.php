@@ -44,6 +44,7 @@ final class Feuer_Kontaktform_Support_Admin
 
         wp_enqueue_media();
         wp_enqueue_style('feuer-kontaktform-support-admin', FEUER_KONTAKTFORM_URL . 'assets/css/support-admin.css', [], FEUER_KONTAKTFORM_VERSION);
+        wp_enqueue_style('feuer-kontaktform-support-admin-design', FEUER_KONTAKTFORM_URL . 'assets/css/support-admin-design.css', ['feuer-kontaktform-support-admin'], FEUER_KONTAKTFORM_VERSION);
         wp_enqueue_script('feuer-kontaktform-support-admin', FEUER_KONTAKTFORM_URL . 'assets/js/support-admin.js', [], FEUER_KONTAKTFORM_VERSION, true);
         wp_add_inline_script('feuer-kontaktform-support-admin', 'window.feuerKontaktformAdmin = ' . wp_json_encode([
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -328,6 +329,75 @@ final class Feuer_Kontaktform_Support_Admin
                 $this->redirect('feuer-kontaktform-departments', 'topic_deleted');
                 break;
 
+            case 'mark_ticket_spam':
+            case 'restore_ticket_from_spam':
+            case 'trash_ticket':
+            case 'restore_ticket':
+            case 'archive_ticket':
+            case 'restore_ticket_from_archive':
+                $ticket_id = absint($_POST['ticket_id'] ?? 0);
+                $ticket = $this->db->get_ticket($ticket_id);
+                $current_status = (string) ($ticket['status'] ?? '');
+                $allowed = match ($action) {
+                    'mark_ticket_spam' => $ticket && ! in_array($current_status, ['spam', 'trash', 'archived'], true),
+                    'restore_ticket_from_spam' => $current_status === 'spam',
+                    'trash_ticket' => $ticket && $current_status !== 'trash',
+                    'restore_ticket' => $current_status === 'trash',
+                    'archive_ticket' => $ticket && ! in_array($current_status, ['spam', 'trash', 'archived'], true),
+                    'restore_ticket_from_archive' => $current_status === 'archived',
+                };
+                $new_status = match ($action) {
+                    'mark_ticket_spam' => 'spam', 'trash_ticket' => 'trash', 'archive_ticket' => 'archived', default => 'open',
+                };
+                $ok = $allowed && $this->db->update_ticket_workflow($ticket_id, $new_status, get_current_user_id(), $action);
+                $visible_status = $ok ? $new_status : $current_status;
+                $view = $visible_status === 'spam' ? 'spam' : ($visible_status === 'trash' ? 'trash' : ($visible_status === 'archived' ? 'archived' : 'active'));
+                $this->redirect(self::TICKETS_SLUG, $ok ? $action . '_done' : 'ticket_action_failed', ['feuer_view' => $view]);
+                break;
+
+            case 'bulk_ticket_action':
+                $ids = array_slice(array_values(array_unique(array_filter(array_map('absint', is_array($_POST['ticket_ids'] ?? null) ? wp_unslash($_POST['ticket_ids']) : [])))), 0, 200);
+                $bulk_action = sanitize_key((string) wp_unslash($_POST['bulk_action'] ?? ''));
+                $target_status = ['spam' => 'spam', 'trash' => 'trash', 'archive' => 'archived', 'restore' => 'open'][$bulk_action] ?? '';
+                $changed = 0;
+                if ($target_status !== '') {
+                    foreach ($ids as $id) {
+                        $ticket = $this->db->get_ticket((int) $id);
+                        if (! $ticket) { continue; }
+                        $old = (string) $ticket['status'];
+                        $allowed = match ($bulk_action) {
+                            'spam' => ! in_array($old, ['spam', 'trash', 'archived'], true),
+                            'trash' => $old !== 'trash',
+                            'archive' => ! in_array($old, ['spam', 'trash', 'archived'], true),
+                            'restore' => in_array($old, ['spam', 'trash', 'archived'], true),
+                            default => false,
+                        };
+                        if ($allowed && $this->db->update_ticket_workflow((int) $id, $target_status, get_current_user_id(), 'bulk_' . $bulk_action)) { $changed++; }
+                    }
+                }
+                $this->redirect(self::TICKETS_SLUG, $changed > 0 ? 'bulk_ticket_action_done' : 'ticket_action_failed', ['feuer_view' => $target_status === 'spam' ? 'spam' : ($target_status === 'trash' ? 'trash' : ($target_status === 'archived' ? 'archived' : 'active')), 'feuer-detail' => (string) $changed]);
+                break;
+
+            case 'assign_ticket':
+                $ticket_id = absint($_POST['ticket_id'] ?? 0);
+                $ok = $this->db->assign_ticket($ticket_id, absint($_POST['assigned_user_id'] ?? 0), get_current_user_id());
+                $this->redirect(self::TICKETS_SLUG, $ok ? 'ticket_assigned' : 'ticket_action_failed', ['feuer_view' => 'active']);
+                break;
+
+            case 'add_ticket_note':
+                $ticket_id = absint($_POST['ticket_id'] ?? 0);
+                $ok = $this->db->add_ticket_note($ticket_id, get_current_user_id(), (string) wp_unslash($_POST['ticket_note'] ?? ''));
+                $this->redirect(self::TICKETS_SLUG, $ok ? 'ticket_note_added' : 'ticket_action_failed', ['feuer_view' => 'active']);
+                break;
+
+            case 'delete_ticket_permanently':
+                if (! $this->user_has_admin_access()) {
+                    $this->deny_access();
+                }
+                $ok = $this->db->delete_ticket_permanently(absint($_POST['ticket_id'] ?? 0));
+                $this->redirect(self::TICKETS_SLUG, $ok ? 'ticket_deleted_permanently' : 'ticket_action_failed', ['feuer_view' => 'trash']);
+                break;
+
             case 'reply_ticket':
                 $ticket_id = absint($_POST['ticket_id'] ?? 0);
                 $message = sanitize_textarea_field((string) wp_unslash($_POST['reply_message'] ?? ''));
@@ -335,7 +405,7 @@ final class Feuer_Kontaktform_Support_Admin
                 $ok = false;
                 $result = ['success' => false, 'message' => 'Anfrage oder Antworttext fehlt.'];
 
-                if ($ticket && $message !== '') {
+                if ($ticket && ! in_array((string) $ticket['status'], ['spam', 'trash'], true) && $message !== '') {
                     $settings = $this->db->get_settings();
                     $actor = wp_get_current_user();
                     $actor_name = $this->user_display_name($actor);
@@ -383,6 +453,9 @@ final class Feuer_Kontaktform_Support_Admin
             case 'resend_department_notification':
                 $ticket_id = absint($_POST['ticket_id'] ?? 0);
                 $ticket = $this->db->get_ticket($ticket_id);
+                if ($ticket && in_array((string) $ticket['status'], ['spam', 'trash'], true)) {
+                    $ticket = null;
+                }
                 $settings = $this->db->get_settings();
                 $result = ['success' => false, 'message' => 'Anfrage oder Empfänger wurde nicht gefunden.', 'recipient' => ''];
 
@@ -482,40 +555,101 @@ final class Feuer_Kontaktform_Support_Admin
 
         $this->ensure_access('tickets_view');
         $search = sanitize_text_field((string) wp_unslash($_GET['feuer_search'] ?? ''));
-        $tickets = $this->db->get_tickets(200, $search);
+        $view = sanitize_key((string) wp_unslash($_GET['feuer_view'] ?? 'active'));
+        if (! in_array($view, ['active', 'spam', 'trash', 'archived'], true)) {
+            $view = 'active';
+        }
+        $filters = [
+            'department_id' => absint($_GET['department_id'] ?? 0),
+            'topic_id' => absint($_GET['topic_id'] ?? 0),
+            'assigned_user_id' => absint($_GET['assigned_user_id'] ?? 0),
+            'date_from' => sanitize_text_field((string) wp_unslash($_GET['date_from'] ?? '')),
+            'date_to' => sanitize_text_field((string) wp_unslash($_GET['date_to'] ?? '')),
+            'sort' => sanitize_key((string) wp_unslash($_GET['sort'] ?? 'newest')),
+        ];
+        $tickets = $this->db->get_tickets(200, $search, $view, $filters);
+        $filter_departments = $this->db->get_departments(true);
+        $filter_topics = [];
+        foreach ($filter_departments as $filter_department) {
+            foreach ($this->db->get_topics((int) $filter_department['id']) as $filter_topic) {
+                $filter_topics[] = $filter_topic + ['department_name' => (string) $filter_department['name']];
+            }
+        }
+        $ticket_users = get_users(['fields' => ['ID', 'display_name', 'user_email']]);
+        $counts = [
+            'active' => $this->db->count_tickets_by_view('active'),
+            'spam' => $this->db->count_tickets_by_view('spam'),
+            'trash' => $this->db->count_tickets_by_view('trash'),
+            'archived' => $this->db->count_tickets_by_view('archived'),
+        ];
         $can_reply = $this->user_has_access('tickets_reply');
         ?>
-        <div class="wrap feuer-support-admin">
-            <h1>Anfragen</h1>
+        <div class="wrap feuer-support-admin feuer-tickets-page">
+            <header class="feuer-page-heading">
+                <div><p class="feuer-eyebrow">Kontaktform / Posteingang</p><h1>Anfragen</h1><p>Nachrichten prüfen, beantworten und den Bearbeitungsstatus verwalten.</p></div>
+                <span class="feuer-status-badge"><?php echo esc_html((string) $counts['active']); ?> im Posteingang</span>
+            </header>
             <?php $this->notice(); ?>
-            <div class="feuer-admin-card">
+            <nav class="feuer-ticket-views" aria-label="Anfragen filtern">
+                <?php foreach (['active' => 'Posteingang', 'spam' => 'Spam', 'archived' => 'Archiv', 'trash' => 'Papierkorb'] as $key => $label) : ?>
+                    <a class="<?php echo $view === $key ? 'is-active' : ''; ?>" <?php echo $view === $key ? 'aria-current="page"' : ''; ?> href="<?php echo esc_url(add_query_arg(['page' => self::TICKETS_SLUG, 'feuer_view' => $key, 'feuer_search' => $search], admin_url('admin.php'))); ?>"><?php echo esc_html($label); ?><span><?php echo esc_html((string) $counts[$key]); ?></span></a>
+                <?php endforeach; ?>
+            </nav>
+            <div class="feuer-admin-card feuer-ticket-panel">
                 <div class="feuer-section-head">
-                <h2>Letzte Anfragen</h2>
-                <p class="description">Die <strong>Anfrage Nr.</strong> gehört in den Betreff jeder E-Mail-Antwort, damit der Dialog eindeutig zugeordnet werden kann.</p>
+                    <h2><?php echo $view === 'spam' ? 'Spam' : ($view === 'trash' ? 'Papierkorb' : 'Letzte Anfragen'); ?></h2>
+                    <p class="description"><?php echo $view === 'trash' ? 'Gelöschte Anfragen können wiederhergestellt werden. Endgültiges Löschen ist nur für Administratoren verfügbar.' : 'Die Anfrage Nr. gehört in den Betreff jeder E-Mail-Antwort, damit der Dialog zugeordnet werden kann.'; ?></p>
                 </div>
                 <div class="feuer-section-body">
                 <form method="get" class="feuer-search-row">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::TICKETS_SLUG); ?>">
-                    <input class="regular-text" type="search" name="feuer_search" value="<?php echo esc_attr($search); ?>" placeholder="E-Mail, Name oder Anfrage Nr.">
+                    <input type="hidden" name="feuer_view" value="<?php echo esc_attr($view); ?>">
+                    <label class="screen-reader-text" for="feuer-ticket-search">Anfragen durchsuchen</label>
+                    <input id="feuer-ticket-search" class="regular-text" type="search" name="feuer_search" value="<?php echo esc_attr($search); ?>" placeholder="Name, E-Mail, Betreff oder Anfrage Nr.">
                     <button class="button">Suchen</button>
-                    <?php if ($search !== '') : ?><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=' . self::TICKETS_SLUG)); ?>">Zurücksetzen</a><?php endif; ?>
+                    <?php if ($search !== '') : ?><a class="button" href="<?php echo esc_url(add_query_arg(['page' => self::TICKETS_SLUG, 'feuer_view' => $view], admin_url('admin.php'))); ?>">Zurücksetzen</a><?php endif; ?>
                 </form>
+                <form method="get" class="feuer-ticket-filters">
+                    <input type="hidden" name="page" value="<?php echo esc_attr(self::TICKETS_SLUG); ?>"><input type="hidden" name="feuer_view" value="<?php echo esc_attr($view); ?>"><input type="hidden" name="feuer_search" value="<?php echo esc_attr($search); ?>">
+                    <label>Abteilung<select name="department_id"><option value="0">Alle</option><?php foreach ($filter_departments as $department) : ?><option value="<?php echo esc_attr((string) $department['id']); ?>" <?php selected($filters['department_id'], (int) $department['id']); ?>><?php echo esc_html((string) $department['name']); ?></option><?php endforeach; ?></select></label>
+                    <label>Thema<select name="topic_id"><option value="0">Alle</option><?php foreach ($filter_topics as $topic) : ?><option value="<?php echo esc_attr((string) $topic['id']); ?>" <?php selected($filters['topic_id'], (int) $topic['id']); ?>><?php echo esc_html($topic['department_name'] . ' · ' . $topic['title']); ?></option><?php endforeach; ?></select></label>
+                    <label>Zuständig<select name="assigned_user_id"><option value="0">Alle</option><?php foreach ($ticket_users as $ticket_user) : ?><option value="<?php echo esc_attr((string) $ticket_user->ID); ?>" <?php selected($filters['assigned_user_id'], (int) $ticket_user->ID); ?>><?php echo esc_html($ticket_user->display_name); ?></option><?php endforeach; ?></select></label>
+                    <label>Von<input type="date" name="date_from" value="<?php echo esc_attr($filters['date_from']); ?>"></label><label>Bis<input type="date" name="date_to" value="<?php echo esc_attr($filters['date_to']); ?>"></label>
+                    <label>Sortierung<select name="sort"><option value="newest" <?php selected($filters['sort'], 'newest'); ?>>Neueste zuerst</option><option value="oldest" <?php selected($filters['sort'], 'oldest'); ?>>Älteste zuerst</option></select></label>
+                    <button class="button">Filtern</button>
+                </form>
+                <?php if ($can_reply && $tickets !== []) : ?>
+                    <form method="post" id="feuer-ticket-bulk-form" class="feuer-ticket-bulk-form"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="bulk_ticket_action"><label>Ausgewählte Anfragen<select name="bulk_action" required><option value="">Aktion wählen</option><option value="spam">Als Spam markieren</option><option value="trash">In Papierkorb</option><option value="archive">Archivieren</option><option value="restore">Wiederherstellen</option></select></label><button class="button">Anwenden</button><span class="description">Maximal 200 Anfragen pro Vorgang.</span></form>
+                <?php endif; ?>
                 <div class="feuer-ticket-list">
                     <?php if ($tickets === []) : ?>
-                        <p>Noch keine Anfragen vorhanden.</p>
+                        <p class="feuer-empty-state"><?php echo $search !== '' ? 'Keine passenden Anfragen gefunden.' : ($view === 'spam' ? 'Keine Anfragen im Spam.' : ($view === 'trash' ? 'Der Papierkorb ist leer.' : 'Noch keine Anfragen vorhanden.')); ?></p>
                     <?php endif; ?>
                     <?php foreach ($tickets as $ticket) : ?>
                         <?php $messages = $this->db->get_ticket_messages((int) $ticket['id']); ?>
+                        <div class="feuer-ticket-entry">
+                        <?php if ($can_reply) : ?><label class="feuer-ticket-select"><input type="checkbox" name="ticket_ids[]" value="<?php echo esc_attr((string) $ticket['id']); ?>" form="feuer-ticket-bulk-form"><span class="screen-reader-text">Anfrage <?php echo esc_html((string) $ticket['ticket_code']); ?> auswählen</span></label><?php endif; ?>
                         <details class="feuer-ticket-card">
                             <summary>
-                                <strong><?php echo esc_html((string) $ticket['ticket_code']); ?></strong>
-                                <span><?php echo esc_html((string) ($ticket['department_name'] ?? '')); ?></span>
-                                <span><?php echo esc_html((string) ($ticket['topic_title'] ?? '')); ?></span>
-                                <span><?php echo esc_html((string) $ticket['sender_name']); ?></span>
+                                <span class="feuer-ticket-summary-main">
+                                    <span class="feuer-ticket-summary-top"><strong>#<?php echo esc_html((string) $ticket['ticket_code']); ?></strong><span class="feuer-ticket-status is-<?php echo esc_attr((string) $ticket['status']); ?>"><?php echo esc_html(match ((string) $ticket['status']) { 'in_progress' => 'In Bearbeitung', 'quarantined' => 'Quarantäne', 'resolved' => 'Erledigt', 'spam' => 'Spam', 'trash' => 'Papierkorb', 'archived' => 'Archiviert', default => 'Offen' }); ?></span></span>
+                                    <span class="feuer-ticket-summary-title"><?php echo esc_html((string) ($ticket['subject'] ?: $ticket['topic_title'] ?: 'Anfrage')); ?></span>
+                                    <span class="feuer-ticket-summary-preview"><?php echo esc_html(wp_trim_words((string) $ticket['message'], 18, '…')); ?></span>
+                                </span>
+                                <span class="feuer-ticket-summary-person"><strong><?php echo esc_html((string) $ticket['sender_name']); ?></strong><span><?php echo esc_html((string) $ticket['sender_email']); ?></span><span><?php echo esc_html((string) ($ticket['department_name'] ?? '')); ?></span></span>
                                 <time><?php echo esc_html((string) $ticket['created_at']); ?></time>
+                                <span class="feuer-ticket-chevron" aria-hidden="true">⌄</span>
                             </summary>
                             <div class="feuer-ticket-body">
+                                <?php if ($can_reply && $view === 'active') : ?>
+                                    <div class="feuer-ticket-workflow-tools">
+                                        <form method="post" class="feuer-ticket-assignment"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="assign_ticket"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><label>Zuständig<select name="assigned_user_id"><option value="0">Nicht zugewiesen</option><?php foreach ($ticket_users as $ticket_user) : ?><option value="<?php echo esc_attr((string) $ticket_user->ID); ?>" <?php selected((int) ($ticket['assigned_user_id'] ?? 0), (int) $ticket_user->ID); ?>><?php echo esc_html($ticket_user->display_name); ?></option><?php endforeach; ?></select></label><button class="button">Zuweisen</button></form>
+                                    </div>
+                                <?php endif; ?>
+                                <details class="feuer-ticket-technical">
+                                    <summary>Technische Details und Datenschutz</summary>
                                 <div class="feuer-ticket-meta">
+                                    <span>Eingang am: <strong><?php echo esc_html((string) $ticket['created_at']); ?></strong></span>
                                     <span>Status: <strong><?php echo esc_html((string) $ticket['status']); ?></strong></span>
                                     <span>Eingang: <strong><?php echo (string) ($ticket['origin'] ?? '') === 'direct_email' ? 'Direkte E-Mail' : 'Kontaktformular'; ?></strong></span>
                                     <span>Datenschutz: <strong><?php echo empty($ticket['privacy_required']) ? 'deaktiviert' : (! empty($ticket['privacy_accepted']) ? 'ja' : 'nein'); ?></strong> / <?php echo esc_html((string) $ticket['privacy_version']); ?></span>
@@ -523,7 +657,8 @@ final class Feuer_Kontaktform_Support_Admin
                                     <span>Gerät: <strong><?php echo esc_html((string) $ticket['device_type']); ?></strong></span>
                                     <span>Browser: <strong><?php echo esc_html((string) $ticket['browser']); ?></strong></span>
                                 </div>
-                                <?php if ((string) $ticket['status'] === 'quarantined' && $can_reply) : ?>
+                                </details>
+                                <?php if ((string) $ticket['status'] === 'quarantined' && $can_reply && $view === 'active') : ?>
                                     <form method="post" class="feuer-ticket-action">
                                         <?php wp_nonce_field('feuer_support_admin'); ?>
                                         <input type="hidden" name="feuer_support_action" value="start_ticket_work">
@@ -571,7 +706,7 @@ final class Feuer_Kontaktform_Support_Admin
                                             <p class="description">Geschützter Zugriff widerrufen am <?php echo esc_html((string) $ticket['access_revoked_at']); ?>.</p>
                                         <?php endif; ?>
                                     </div>
-                                    <?php if ($can_reply) : ?>
+                                    <?php if ($can_reply && $view === 'active') : ?>
                                         <div class="feuer-delivery-actions">
                                             <form method="post">
                                                 <?php wp_nonce_field('feuer_support_admin'); ?>
@@ -615,7 +750,12 @@ final class Feuer_Kontaktform_Support_Admin
                                         <?php endforeach; ?>
                                     </div>
                                 <?php endif; ?>
-                                <?php if ($can_reply) : ?>
+                                <?php $ticket_notes = $this->db->get_ticket_notes((int) $ticket['id']); ?>
+                                <section class="feuer-ticket-notes"><h3>Interne Notizen</h3><p class="description">Nur im WordPress-Postfach sichtbar; sie werden nicht per E-Mail versendet.</p>
+                                    <?php if ($ticket_notes !== []) : ?><div class="feuer-note-list"><?php foreach ($ticket_notes as $ticket_note) : ?><article><b><?php echo esc_html((string) ($ticket_note['actor_name'] ?: 'Team')); ?></b><time><?php echo esc_html((string) $ticket_note['created_at']); ?></time><p><?php echo nl2br(esc_html((string) $ticket_note['body'])); ?></p></article><?php endforeach; ?></div><?php else : ?><p class="description">Noch keine internen Notizen.</p><?php endif; ?>
+                                    <?php if ($can_reply && ! in_array($view, ['trash', 'spam'], true)) : ?><form method="post" class="feuer-note-form"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="add_ticket_note"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><label>Notiz<textarea name="ticket_note" rows="3" required></textarea></label><button class="button">Notiz speichern</button></form><?php endif; ?>
+                                </section>
+                                <?php if ($can_reply && $view === 'active') : ?>
                                     <form method="post" class="feuer-reply-form">
                                         <?php wp_nonce_field('feuer_support_admin'); ?>
                                         <input type="hidden" name="feuer_support_action" value="reply_ticket">
@@ -626,11 +766,31 @@ final class Feuer_Kontaktform_Support_Admin
                                         <label>Antwort<textarea class="large-text" name="reply_message" rows="9" required><?php echo esc_textarea($this->default_reply_template($ticket)); ?></textarea></label>
                                         <button class="button button-primary">Antwort senden</button>
                                     </form>
-                                <?php else : ?>
+                                <?php elseif (! $can_reply && $view === 'active') : ?>
                                     <p class="description">Für diese Rolle ist das Antworten aus dem Plugin derzeit nicht freigeschaltet.</p>
                                 <?php endif; ?>
                             </div>
                         </details>
+                        <?php if ($can_reply) : ?>
+                            <div class="feuer-ticket-quick-actions" aria-label="Schnellaktionen für Anfrage <?php echo esc_attr((string) $ticket['ticket_code']); ?>">
+                                <?php if ($view === 'active') : ?>
+                                    <form method="post"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="mark_ticket_spam"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button" title="Als Spam markieren">Spam</button></form>
+                                    <form method="post"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="archive_ticket"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button">Archivieren</button></form>
+                                <?php elseif ($view === 'spam') : ?>
+                                    <form method="post"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="restore_ticket_from_spam"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button">Kein Spam</button></form>
+                                <?php endif; ?>
+                                <?php if ($view === 'archived') : ?><form method="post"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="restore_ticket_from_archive"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button">Wiederherstellen</button></form><?php endif; ?>
+                                <?php if ($view === 'trash') : ?>
+                                    <form method="post"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="restore_ticket"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button">Wiederherstellen</button></form>
+                                    <?php if ($this->user_has_admin_access()) : ?>
+                                        <form method="post" data-feuer-confirm="Diese Anfrage mit allen Nachrichten und Anhängen endgültig löschen? Dieser Vorgang kann nicht rückgängig gemacht werden."><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="delete_ticket_permanently"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button feuer-button-danger">Löschen</button></form>
+                                    <?php endif; ?>
+                                <?php else : ?>
+                                    <form method="post"><?php wp_nonce_field('feuer_support_admin'); ?><input type="hidden" name="feuer_support_action" value="trash_ticket"><input type="hidden" name="ticket_id" value="<?php echo esc_attr((string) $ticket['id']); ?>"><button class="button feuer-button-subtle" title="In Papierkorb verschieben">Löschen</button></form>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                        </div>
                     <?php endforeach; ?>
                 </div>
                 </div>
@@ -743,6 +903,7 @@ final class Feuer_Kontaktform_Support_Admin
                         <button type="button" data-tab-target="settings-deliverability">Zustellbarkeit</button>
                         <button type="button" data-tab-target="settings-privacy">Datenschutz</button>
                         <?php if ($this->user_has_admin_access()) : ?><button type="button" data-tab-target="settings-access">Zugriff</button><?php endif; ?>
+                        <button type="button" data-tab-target="settings-notifications">Benachrichtigungen</button>
                         <button type="button" data-tab-target="settings-system">System</button>
                         <button type="button" data-tab-target="settings-backup">Sicherung</button>
                         <button type="button" data-tab-target="settings-shortcodes">Shortcodes</button>
@@ -1039,6 +1200,23 @@ final class Feuer_Kontaktform_Support_Admin
                         </div>
                     <?php endif; ?>
 
+                    <div class="feuer-tab-panel" data-tab-panel="settings-notifications">
+                        <form method="post">
+                            <?php wp_nonce_field('feuer_support_admin'); ?>
+                            <input type="hidden" name="feuer_support_action" value="save_settings">
+                            <h2>Benachrichtigungen bei neuen Anfragen</h2>
+                            <input type="hidden" name="ticket_notification_enabled" value="0">
+                            <label class="feuer-check-label"><input type="checkbox" name="ticket_notification_enabled" value="1" <?php checked(! empty($settings['ticket_notification_enabled'])); ?>> E-Mail-Benachrichtigungen aktivieren</label>
+                            <p class="description">Die ausgewählten Benutzer erhalten Anfrage-ID, Betreff und Link zur Verwaltung. Der Nachrichtentext wird nicht per E-Mail versendet.</p>
+                            <fieldset class="feuer-choice-fieldset"><legend>Empfänger</legend><div class="feuer-choice-grid">
+                                <?php foreach (get_users(['fields' => ['ID', 'display_name', 'user_email']]) as $notify_user) : ?>
+                                    <label class="feuer-check-label"><input type="checkbox" name="ticket_notification_user_ids[]" value="<?php echo esc_attr((string) $notify_user->ID); ?>" <?php checked(in_array((int) $notify_user->ID, (array) $settings['ticket_notification_user_ids'], true)); ?>> <?php echo esc_html($notify_user->display_name . ' · ' . $notify_user->user_email); ?></label>
+                                <?php endforeach; ?>
+                            </div></fieldset>
+                            <p><button class="button button-primary">Benachrichtigungen speichern</button></p>
+                        </form>
+                    </div>
+
                     <div class="feuer-tab-panel" data-tab-panel="settings-system">
                         <form method="post">
                             <?php wp_nonce_field('feuer_support_admin'); ?>
@@ -1167,70 +1345,8 @@ final class Feuer_Kontaktform_Support_Admin
         $departments = $this->db->get_departments(true);
         $wp_users = get_users(['fields' => ['ID', 'display_name', 'user_email']]);
         $webhook_url = rest_url('feuer-kontaktform/v1/telegram/webhook');
-        ?>
-        <div class="wrap feuer-support-admin">
-            <h1>Telegram-Arbeitsbereich</h1>
-            <div class="feuer-admin-card">
-                <h2>Bot-Verbindung</h2>
-                <p class="description">Telegram wird nur als geschützter Benachrichtigungs- und Bedienkanal verwendet. Die Anfragen bleiben in WordPress gespeichert.</p>
-                <details class="feuer-telegram-help" open>
-                    <summary>Bot in Telegram erstellen – Anleitung</summary>
-                    <ol>
-                        <li>Öffnen Sie Telegram und suchen Sie nach <strong>@BotFather</strong>.</li>
-                        <li>Senden Sie <code>/newbot</code>, vergeben Sie einen Anzeigenamen und einen Benutzernamen, der auf <code>bot</code> endet.</li>
-                        <li>Kopieren Sie den von @BotFather angezeigten <strong>Bot-Token</strong> und fügen Sie ihn unten ein. Der Token wird verschlüsselt gespeichert und nie wieder angezeigt.</li>
-                        <li>Warten Sie auf die grüne Live-Prüfung, speichern Sie, erzeugen Sie für jeden Mitarbeiter einen Kopplungscode und senden Sie ihn privat mit <code>/start CODE</code> an den Bot.</li>
-                    </ol>
-                </details>
-                <form method="post">
-                    <?php wp_nonce_field('feuer_support_admin'); ?>
-                    <input type="hidden" name="feuer_support_action" value="save_settings">
-                    <input type="hidden" name="telegram_webhook_secret" value="<?php echo esc_attr((string) $settings['telegram_webhook_secret']); ?>">
-                    <p><label class="feuer-check-label"><input type="hidden" name="telegram_enabled" value="0"><input type="checkbox" name="telegram_enabled" value="1" <?php checked(! empty($settings['telegram_enabled'])); ?>> Telegram-Benachrichtigungen aktivieren</label></p>
-                    <p><label>Bot-Token<br><input class="regular-text" type="password" name="telegram_bot_token" value="" autocomplete="new-password" data-telegram-token aria-describedby="feuer-telegram-token-status" placeholder="<?php echo empty($settings['telegram_bot_token']) ? 'Nicht gespeichert' : 'Gespeichert – leer lassen zum Beibehalten'; ?>"><span id="feuer-telegram-token-status" class="description" data-telegram-token-status aria-live="polite">Token einfügen: Die Verbindung wird automatisch geprüft, ohne den Token zu speichern.</span></label></p>
-                    <p><label>Datenschutzmodus<br><select name="telegram_privacy_mode"><option value="summary" <?php selected((string) $settings['telegram_privacy_mode'], 'summary'); ?>>Zusammenfassung mit E-Mail-Adresse</option><option value="masked" <?php selected((string) $settings['telegram_privacy_mode'], 'masked'); ?>>E-Mail-Adresse maskieren</option></select></label></p>
-                    <p><button class="button button-primary">Telegram-Einstellungen speichern</button></p>
-                </form>
-                <h3>Webhook</h3>
-                <p class="description">Diese URL wird nach dem Speichern des Bot-Tokens bei Telegram als HTTPS-Webhook hinterlegt. Das geheime Header-Token wird serverseitig geprüft.</p>
-                <p><code><?php echo esc_html($webhook_url); ?></code></p>
-            </div>
-            <div class="feuer-admin-card">
-                <h2>Gekoppelte Empfänger</h2>
-                <p class="description">Für die erste Kopplung erzeugen Sie einen zeitlich begrenzten Code. Der Mitarbeiter sendet ihn privat mit <code>/start CODE</code> an den Bot; anschließend kann er unten einer Abteilung zugeordnet werden.</p>
-                <?php if ($users === []) : ?>
-                    <p>Noch keine Telegram-Empfänger gekoppelt.</p>
-                <?php else : ?>
-                    <table class="widefat striped"><thead><tr><th>Telegram</th><th>Profil</th><th>Status</th><th>Letzte Aktivität</th></tr></thead><tbody>
-                    <?php foreach ($users as $user) : ?><tr><td><?php echo esc_html((string) $user['display_name']); ?><br><small><?php echo esc_html((string) $user['telegram_user_id']); ?></small></td><td><?php echo esc_html(trim((string) $user['first_name'] . ' ' . (string) $user['last_name']) ?: 'Noch nicht eingerichtet'); ?></td><td><?php echo ! empty($user['is_active']) ? 'Aktiv' : 'Kopplung offen'; ?></td><td><?php echo esc_html((string) $user['last_seen_at']); ?></td></tr><?php endforeach; ?>
-                    </tbody></table>
-                <?php endif; ?>
-                <h3>Empfänger koppeln</h3>
-                <form method="post" class="feuer-form-grid">
-                    <?php wp_nonce_field('feuer_support_admin'); ?>
-                    <input type="hidden" name="feuer_support_action" value="create_telegram_pairing">
-                    <label>WordPress-Benutzer<select name="telegram_wp_user_id" required><option value="">Bitte wählen</option><?php foreach ($wp_users as $wp_user) : ?><option value="<?php echo esc_attr((string) $wp_user->ID); ?>"><?php echo esc_html($wp_user->display_name . ' – ' . $wp_user->user_email); ?></option><?php endforeach; ?></select></label>
-                    <fieldset><legend>Erlaubte Telegram-Aktionen</legend><?php foreach (['open_browser' => 'Im Browser öffnen', 'claim' => 'Übernehmen', 'read' => 'Als gelesen', 'reply' => 'Antworten', 'spam' => 'Als Spam markieren'] as $permission => $label) : ?><label class="feuer-check-label"><input type="checkbox" name="telegram_permissions[]" value="<?php echo esc_attr($permission); ?>" <?php checked($permission !== 'spam'); ?>> <?php echo esc_html($label); ?></label><?php endforeach; ?></fieldset>
-                    <p><button class="button">Kopplungscode erzeugen</button></p>
-                </form>
-                <?php if ((string) ($_GET['feuer-message'] ?? '') === 'telegram_pairing_created') : ?><div class="notice notice-success inline"><p>Kopplungscode: <strong><code><?php echo esc_html((string) wp_unslash($_GET['feuer-detail'] ?? '')); ?></code></strong>. Der Mitarbeiter sendet privat <code>/start CODE</code> an den Bot.</p></div><?php endif; ?>
-            </div>
-            <div class="feuer-admin-card">
-                <h2>Abteilungsrouting</h2>
-                <p class="description">Jede neue Anfrage wird nur an die hier zugeordnete, aktiv gekoppelte Person gesendet.</p>
-                <form method="post" class="feuer-form-grid">
-                    <?php wp_nonce_field('feuer_support_admin'); ?>
-                    <input type="hidden" name="feuer_support_action" value="save_telegram_route">
-                    <label>Abteilung<select name="telegram_department_id" required><option value="">Bitte wählen</option><?php foreach ($departments as $department) : ?><option value="<?php echo esc_attr((string) $department['id']); ?>"><?php echo esc_html((string) $department['name']); ?></option><?php endforeach; ?></select></label>
-                    <label>Telegram-Empfänger<select name="telegram_user_id" required><option value="">Bitte wählen</option><?php foreach ($users as $user) : ?><?php if (! empty($user['is_active'])) : ?><option value="<?php echo esc_attr((string) $user['telegram_user_id']); ?>"><?php echo esc_html((string) $user['display_name']); ?></option><?php endif; ?><?php endforeach; ?></select></label>
-                    <input type="hidden" name="telegram_topic_id" value="0">
-                    <fieldset><legend>Sichtbare Aktionen</legend><?php foreach (['open_browser' => 'Im Browser öffnen', 'claim' => 'Übernehmen', 'read' => 'Als gelesen', 'spam' => 'Als Spam markieren'] as $permission => $label) : ?><label class="feuer-check-label"><input type="checkbox" name="telegram_route_actions[]" value="<?php echo esc_attr($permission); ?>" checked> <?php echo esc_html($label); ?></label><?php endforeach; ?></fieldset>
-                    <p><button class="button">Routing speichern</button></p>
-                </form>
-                <?php if ($routes !== []) : ?><table class="widefat striped"><thead><tr><th>Abteilung</th><th>Empfänger</th><th>Aktionen</th></tr></thead><tbody><?php foreach ($routes as $route) : ?><tr><td><?php echo esc_html((string) $route['department_name']); ?></td><td><?php echo esc_html((string) $route['display_name']); ?></td><td><?php echo esc_html(implode(', ', (array) $route['actions'])); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
-            </div>
-        </div>
-        <?php
+
+        require __DIR__ . '/views/telegram.php';
     }
 
     public function logs_page(): void
@@ -1369,6 +1485,8 @@ final class Feuer_Kontaktform_Support_Admin
             'ticket_auto_reply_failed' => 'Autoantwort konnte nicht gesendet werden',
             'ticket_replied' => 'Antwort gesendet',
             'ticket_reply_failed' => 'Antwort konnte nicht gesendet werden',
+            'ticket_workflow_updated' => 'Anfragestatus geändert',
+            'ticket_deleted_permanently' => 'Anfrage endgültig gelöscht',
         ];
 
         return $labels[$action] ?? $action;
@@ -1503,7 +1621,17 @@ final class Feuer_Kontaktform_Support_Admin
             'reply_ticket',
             'start_ticket_work',
             'resend_department_notification',
-            'revoke_department_access' => 'tickets_reply',
+            'revoke_department_access',
+            'mark_ticket_spam',
+            'restore_ticket_from_spam',
+            'trash_ticket',
+            'restore_ticket',
+            'delete_ticket_permanently' => 'tickets_reply',
+            'archive_ticket',
+            'restore_ticket_from_archive',
+            'bulk_ticket_action',
+            'assign_ticket',
+            'add_ticket_note' => 'tickets_reply',
             default => '',
         };
     }
@@ -2141,6 +2269,8 @@ final class Feuer_Kontaktform_Support_Admin
             'telegram_bot_token' => $telegram_bot_token,
             'telegram_webhook_secret' => $telegram_webhook_secret,
             'telegram_privacy_mode' => $telegram_privacy_mode,
+            'ticket_notification_enabled' => array_key_exists('ticket_notification_enabled', $source) ? (! empty($source['ticket_notification_enabled']) ? 1 : 0) : (int) ($defaults['ticket_notification_enabled'] ?? 0),
+            'ticket_notification_user_ids' => array_values(array_unique(array_filter(array_map('absint', is_array($source['ticket_notification_user_ids'] ?? null) ? wp_unslash($source['ticket_notification_user_ids']) : (array) ($defaults['ticket_notification_user_ids'] ?? []))))),
         ];
     }
 
@@ -2379,6 +2509,17 @@ final class Feuer_Kontaktform_Support_Admin
             'topic_deleted' => 'Thema wurde deaktiviert.',
             'ticket_reply_sent' => 'Antwort wurde gesendet.',
             'ticket_reply_failed' => 'Antwort konnte nicht gesendet werden.',
+            'mark_ticket_spam_done' => 'Anfrage wurde als Spam markiert.',
+            'restore_ticket_from_spam_done' => 'Anfrage wurde aus Spam wiederhergestellt.',
+            'archive_ticket_done' => 'Anfrage wurde archiviert.',
+            'restore_ticket_from_archive_done' => 'Anfrage wurde aus dem Archiv wiederhergestellt.',
+            'trash_ticket_done' => 'Anfrage wurde in den Papierkorb verschoben.',
+            'restore_ticket_done' => 'Anfrage wurde wiederhergestellt.',
+            'ticket_deleted_permanently' => 'Anfrage wurde endgültig gelöscht.',
+            'ticket_action_failed' => 'Die Anfrage konnte nicht geändert werden.',
+            'bulk_ticket_action_done' => 'Massenvorgang abgeschlossen. Geänderte Anfragen:',
+            'ticket_assigned' => 'Zuständigkeit gespeichert.',
+            'ticket_note_added' => 'Interne Notiz gespeichert.',
             'ticket_notification_resent' => 'Die Nachricht wurde erneut an den zuständigen Empfänger gesendet.',
             'ticket_notification_failed' => 'Die Nachricht konnte nicht an den zuständigen Empfänger gesendet werden.',
             'ticket_access_revoked' => 'Der geschützte Zugriff wurde widerrufen.',

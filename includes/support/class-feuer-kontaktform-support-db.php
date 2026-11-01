@@ -19,6 +19,7 @@ final class Feuer_Kontaktform_Support_DB
     private string $telegram_users_table;
     private string $telegram_routes_table;
     private string $telegram_actions_table;
+    private string $ticket_notes_table;
 
     public function __construct()
     {
@@ -32,6 +33,7 @@ final class Feuer_Kontaktform_Support_DB
         $this->telegram_users_table = $wpdb->prefix . 'feuer_kontaktform_telegram_users';
         $this->telegram_routes_table = $wpdb->prefix . 'feuer_kontaktform_telegram_routes';
         $this->telegram_actions_table = $wpdb->prefix . 'feuer_kontaktform_telegram_actions';
+        $this->ticket_notes_table = $wpdb->prefix . 'feuer_kontaktform_ticket_notes';
     }
 
     public static function default_settings(): array
@@ -88,6 +90,8 @@ final class Feuer_Kontaktform_Support_DB
             'telegram_bot_token' => '',
             'telegram_webhook_secret' => '',
             'telegram_privacy_mode' => 'summary',
+            'ticket_notification_enabled' => 0,
+            'ticket_notification_user_ids' => [],
         ];
     }
 
@@ -223,6 +227,7 @@ final class Feuer_Kontaktform_Support_DB
             message longtext NULL,
             fields_json longtext NULL,
             status varchar(40) NOT NULL DEFAULT 'open',
+            assigned_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
             delivery_status varchar(30) NOT NULL DEFAULT 'pending',
             delivery_recipient varchar(255) NOT NULL DEFAULT '',
             delivery_attempts int(11) unsigned NOT NULL DEFAULT 0,
@@ -251,6 +256,8 @@ final class Feuer_Kontaktform_Support_DB
             PRIMARY KEY  (id),
             UNIQUE KEY ticket_code (ticket_code),
             KEY origin (origin),
+            KEY status (status),
+            KEY assigned_user_id (assigned_user_id),
             KEY department_id (department_id),
             KEY topic_id (topic_id),
             KEY sender_email (sender_email),
@@ -274,6 +281,18 @@ final class Feuer_Kontaktform_Support_DB
             KEY ticket_id (ticket_id),
             KEY direction (direction),
             KEY external_id (external_id(190)),
+            KEY created_at (created_at)
+        ) $charset;");
+
+        dbDelta("CREATE TABLE {$this->ticket_notes_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            ticket_id bigint(20) unsigned NOT NULL,
+            actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            body longtext NOT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY ticket_id (ticket_id),
+            KEY actor_id (actor_id),
             KEY created_at (created_at)
         ) $charset;");
 
@@ -390,6 +409,7 @@ final class Feuer_Kontaktform_Support_DB
         $wpdb->query("DROP TABLE IF EXISTS {$this->departments_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->logs_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->telegram_actions_table}");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->ticket_notes_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->telegram_routes_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->telegram_users_table}");
 
@@ -1163,7 +1183,7 @@ final class Feuer_Kontaktform_Support_DB
     public function update_ticket_workflow(int $ticket_id, string $status, int $actor_id = 0, string $reason = ''): bool
     {
         global $wpdb;
-        $allowed = ['open', 'in_progress', 'quarantined', 'spam', 'resolved'];
+        $allowed = ['open', 'in_progress', 'quarantined', 'spam', 'resolved', 'trash', 'archived'];
         if ($ticket_id <= 0 || ! in_array($status, $allowed, true)) {
             return false;
         }
@@ -1363,6 +1383,7 @@ final class Feuer_Kontaktform_Support_DB
         $ticket = $this->get_ticket($ticket_id);
         if (
             ! $ticket
+            || in_array((string) ($ticket['status'] ?? ''), ['spam', 'trash'], true)
             || $token === ''
             || (string) ($ticket['access_token_hash'] ?? '') === ''
             || ! empty($ticket['access_revoked_at'])
@@ -1452,33 +1473,107 @@ final class Feuer_Kontaktform_Support_DB
         return $id > 0 ? $this->get_ticket($id) : null;
     }
 
-    public function get_tickets(int $limit = 100, string $search = ''): array
+    public function get_tickets(int $limit = 100, string $search = '', string $view = 'active', array $filters = []): array
     {
         global $wpdb;
 
-        $where = '';
+        $clauses = [];
         $args = [];
         $search = trim($search);
 
+        if (in_array($view, ['spam', 'trash', 'archived'], true)) {
+            $clauses[] = 't.status = %s';
+            $args[] = $view;
+        } else {
+            $clauses[] = "t.status NOT IN ('spam', 'trash', 'archived')";
+        }
+
         if ($search !== '') {
             $like = '%' . $wpdb->esc_like($search) . '%';
-            $where = 'WHERE t.sender_email LIKE %s OR t.sender_name LIKE %s OR t.ticket_code LIKE %s';
+            $clauses[] = '(t.sender_email LIKE %s OR t.sender_name LIKE %s OR t.ticket_code LIKE %s OR t.subject LIKE %s)';
+            $args[] = $like;
             $args[] = $like;
             $args[] = $like;
             $args[] = $like;
         }
 
-        $sql = "SELECT t.*, d.name AS department_name, d.email AS department_email, p.title AS topic_title, p.email_override AS topic_email
+        foreach (['department_id', 'topic_id', 'assigned_user_id'] as $filter_key) {
+            $filter_value = absint($filters[$filter_key] ?? 0);
+            if ($filter_value > 0) {
+                $clauses[] = 't.' . $filter_key . ' = %d';
+                $args[] = $filter_value;
+            }
+        }
+        foreach (['date_from' => '>=', 'date_to' => '<='] as $date_key => $operator) {
+            $date_value = sanitize_text_field((string) ($filters[$date_key] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_value)) {
+                $clauses[] = 't.created_at ' . $operator . ' %s';
+                $args[] = $date_value . ($date_key === 'date_from' ? ' 00:00:00' : ' 23:59:59');
+            }
+        }
+
+        $where = 'WHERE ' . implode(' AND ', $clauses);
+
+        $order = ($filters['sort'] ?? '') === 'oldest' ? 'ASC' : 'DESC';
+        $sql = "SELECT t.*, d.name AS department_name, d.email AS department_email, p.title AS topic_title, p.email_override AS topic_email, u.display_name AS assigned_user_name
             FROM {$this->tickets_table} t
             LEFT JOIN {$this->departments_table} d ON d.id = t.department_id
             LEFT JOIN {$this->topics_table} p ON p.id = t.topic_id
+            LEFT JOIN {$wpdb->users} u ON u.ID = t.assigned_user_id
             {$where}
-            ORDER BY t.created_at DESC
+            ORDER BY t.created_at {$order}
             LIMIT %d";
 
         $args[] = max(1, min(500, $limit));
         $rows = $wpdb->get_results($wpdb->prepare($sql, $args), ARRAY_A);
         return is_array($rows) ? array_map([$this, 'hydrate_ticket'], $rows) : [];
+    }
+
+    public function count_tickets_by_view(string $view): int
+    {
+        global $wpdb;
+
+        if (in_array($view, ['spam', 'trash', 'archived'], true)) {
+            return (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->tickets_table} WHERE status = %s", $view));
+        }
+
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$this->tickets_table} WHERE status NOT IN ('spam', 'trash', 'archived')");
+    }
+
+    public function delete_ticket_permanently(int $ticket_id): bool
+    {
+        global $wpdb;
+
+        $ticket = $this->get_ticket($ticket_id);
+        if (! $ticket || (string) $ticket['status'] !== 'trash') {
+            return false;
+        }
+
+        if ($wpdb->query('START TRANSACTION') === false) {
+            return false;
+        }
+
+        $messages = $wpdb->delete($this->messages_table, ['ticket_id' => $ticket_id], ['%d']);
+        $notes = $wpdb->delete($this->ticket_notes_table, ['ticket_id' => $ticket_id], ['%d']);
+        $actions = $wpdb->delete($this->telegram_actions_table, ['ticket_id' => $ticket_id], ['%d']);
+        $logs = $wpdb->delete($this->logs_table, ['object_type' => 'ticket', 'object_id' => $ticket_id], ['%s', '%d']);
+        $deleted = $messages !== false && $notes !== false && $actions !== false && $logs !== false
+            ? $wpdb->delete($this->tickets_table, ['id' => $ticket_id, 'status' => 'trash'], ['%d', '%s'])
+            : false;
+
+        if ($deleted !== 1) {
+            $wpdb->query('ROLLBACK');
+            return false;
+        }
+
+        if ($wpdb->query('COMMIT') === false) {
+            $wpdb->query('ROLLBACK');
+            return false;
+        }
+
+        $this->delete_ticket_uploads((array) ($ticket['fields'] ?? []));
+        $this->log('ticket_deleted_permanently', 'ticket', 0, ['ticket_code' => (string) $ticket['ticket_code']]);
+        return true;
     }
 
     public function get_ticket_messages(int $ticket_id): array
@@ -1491,6 +1586,43 @@ final class Feuer_Kontaktform_Support_DB
         );
 
         return is_array($rows) ? $rows : [];
+    }
+
+    public function get_ticket_notes(int $ticket_id): array
+    {
+        global $wpdb;
+        $sql = "SELECT n.*, u.display_name AS actor_name FROM {$this->ticket_notes_table} n LEFT JOIN {$wpdb->users} u ON u.ID = n.actor_id WHERE n.ticket_id = %d ORDER BY n.created_at ASC, n.id ASC";
+        $rows = $wpdb->get_results($wpdb->prepare($sql, $ticket_id), ARRAY_A);
+        return is_array($rows) ? $rows : [];
+    }
+
+    public function add_ticket_note(int $ticket_id, int $actor_id, string $body): bool
+    {
+        global $wpdb;
+        $body = sanitize_textarea_field($body);
+        if ($ticket_id <= 0 || $actor_id <= 0 || $body === '' || ! $this->get_ticket($ticket_id)) {
+            return false;
+        }
+        $inserted = $wpdb->insert($this->ticket_notes_table, ['ticket_id' => $ticket_id, 'actor_id' => $actor_id, 'body' => $body, 'created_at' => current_time('mysql')], ['%d', '%d', '%s', '%s']);
+        if ($inserted !== 1) {
+            return false;
+        }
+        $this->log('ticket_internal_note_added', 'ticket', $ticket_id, ['actor_id' => $actor_id]);
+        return true;
+    }
+
+    public function assign_ticket(int $ticket_id, int $user_id, int $actor_id): bool
+    {
+        global $wpdb;
+        if ($ticket_id <= 0 || ! $this->get_ticket($ticket_id) || ($user_id > 0 && ! get_user_by('id', $user_id))) {
+            return false;
+        }
+        $updated = $wpdb->update($this->tickets_table, ['assigned_user_id' => max(0, $user_id), 'updated_at' => current_time('mysql')], ['id' => $ticket_id], ['%d', '%s'], ['%d']);
+        if ($updated === false) {
+            return false;
+        }
+        $this->log('ticket_assigned', 'ticket', $ticket_id, ['assigned_user_id' => $user_id, 'actor_id' => $actor_id]);
+        return true;
     }
 
     public function get_latest_ticket_message(int $ticket_id, string $direction = ''): ?array
@@ -1652,6 +1784,7 @@ final class Feuer_Kontaktform_Support_DB
             'topics' => $this->backup_rows($this->topics_table),
             'tickets' => $this->backup_rows($this->tickets_table),
             'messages' => $this->backup_rows($this->messages_table),
+            'ticket_notes' => $this->backup_rows($this->ticket_notes_table),
             'logs' => $this->backup_rows($this->logs_table),
         ];
     }
@@ -1667,6 +1800,7 @@ final class Feuer_Kontaktform_Support_DB
             'topics' => $this->backup_rows($this->topics_table),
             'tickets' => $this->backup_rows($this->tickets_table),
             'messages' => $this->backup_rows($this->messages_table),
+            'ticket_notes' => $this->backup_rows($this->ticket_notes_table),
         ];
     }
 
@@ -1686,6 +1820,7 @@ final class Feuer_Kontaktform_Support_DB
         $topics = is_array($payload['topics'] ?? null) ? $payload['topics'] : null;
         $tickets = is_array($payload['tickets'] ?? null) ? $payload['tickets'] : null;
         $messages = is_array($payload['messages'] ?? null) ? $payload['messages'] : null;
+        $ticket_notes = is_array($payload['ticket_notes'] ?? null) ? $payload['ticket_notes'] : [];
         $logs = is_array($payload['logs'] ?? null) ? $payload['logs'] : null;
 
         if ($settings === null || $departments === null || $topics === null || $tickets === null || $messages === null || $logs === null) {
@@ -1701,8 +1836,9 @@ final class Feuer_Kontaktform_Support_DB
         if (
             ! $this->replace_table_rows($this->departments_table, $departments, ['id', 'name', 'slug', 'email', 'description', 'contact_name', 'contact_phone', 'contact_area', 'contact_description', 'contact_public', 'contact_visibility', 'sort_order', 'is_active', 'created_at', 'updated_at'])
             || ! $this->replace_table_rows($this->topics_table, $topics, ['id', 'department_id', 'title', 'slug', 'email_override', 'auto_reply_enabled', 'auto_reply_format', 'auto_subject', 'auto_body', 'auto_html', 'fields_json', 'sort_order', 'is_active', 'created_at', 'updated_at'])
-            || ! $this->replace_table_rows($this->tickets_table, $tickets, ['id', 'ticket_code', 'origin', 'department_id', 'topic_id', 'subject', 'sender_name', 'sender_email', 'sender_phone', 'message', 'fields_json', 'status', 'delivery_status', 'delivery_recipient', 'delivery_attempts', 'delivery_last_error', 'delivery_last_attempt_at', 'delivery_accepted_at', 'delivery_confirmed_at', 'access_token_hash', 'access_recipient', 'access_expires_at', 'access_last_used_at', 'access_revoked_at', 'privacy_required', 'privacy_accepted', 'privacy_version', 'privacy_url', 'consent_text', 'ip_address', 'visitor_cookie', 'browser', 'device_type', 'user_agent', 'captcha_required', 'created_at', 'updated_at'])
+            || ! $this->replace_table_rows($this->tickets_table, $tickets, ['id', 'ticket_code', 'origin', 'department_id', 'topic_id', 'subject', 'sender_name', 'sender_email', 'sender_phone', 'message', 'fields_json', 'status', 'assigned_user_id', 'delivery_status', 'delivery_recipient', 'delivery_attempts', 'delivery_last_error', 'delivery_last_attempt_at', 'delivery_accepted_at', 'delivery_confirmed_at', 'access_token_hash', 'access_recipient', 'access_expires_at', 'access_last_used_at', 'access_revoked_at', 'privacy_required', 'privacy_accepted', 'privacy_version', 'privacy_url', 'consent_text', 'ip_address', 'visitor_cookie', 'browser', 'device_type', 'user_agent', 'captcha_required', 'created_at', 'updated_at'])
             || ! $this->replace_table_rows($this->messages_table, $messages, ['id', 'ticket_id', 'direction', 'source', 'external_id', 'from_email', 'to_email', 'body', 'raw_json', 'created_at'])
+            || ! $this->replace_table_rows($this->ticket_notes_table, $ticket_notes, ['id', 'ticket_id', 'actor_id', 'body', 'created_at'])
             || ! $this->replace_table_rows($this->logs_table, $logs, ['id', 'actor_id', 'action', 'object_type', 'object_id', 'ip_address', 'user_agent', 'context_json', 'created_at'])
         ) {
             $wpdb->query('ROLLBACK');

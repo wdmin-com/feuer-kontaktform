@@ -61,6 +61,7 @@ final class Feuer_Kontaktform_Support_Plugin
         add_action('admin_post_feuer_department_ticket', [$this, 'department_ticket']);
         add_action('admin_post_nopriv_feuer_department_ticket', [$this, 'department_ticket']);
         add_action('feuer_kontaktform_check_inbound_mail', [$this, 'check_inbound_mail']);
+        add_action('feuer_kontaktform_ticket_created', [$this, 'notify_ticket_recipients']);
         add_filter('cron_schedules', [self::class, 'cron_schedules']);
         add_filter('wp_privacy_personal_data_exporters', [$this, 'register_privacy_exporter']);
         add_filter('wp_privacy_personal_data_erasers', [$this, 'register_privacy_eraser']);
@@ -88,6 +89,38 @@ final class Feuer_Kontaktform_Support_Plugin
         }
     }
 
+    public function notify_ticket_recipients(int $ticket_id): void
+    {
+        $settings = $this->db->get_settings();
+        if (empty($settings['ticket_notification_enabled'])) {
+            return;
+        }
+        $ticket = $this->db->get_ticket($ticket_id);
+        if (! $ticket || in_array((string) $ticket['status'], ['spam', 'quarantined', 'trash', 'archived'], true)) {
+            return;
+        }
+        $emails = [];
+        foreach ((array) ($settings['ticket_notification_user_ids'] ?? []) as $user_id) {
+            $user = get_user_by('id', absint($user_id));
+            if ($user && is_email($user->user_email)) {
+                $emails[] = sanitize_email($user->user_email);
+            }
+        }
+        $emails = array_values(array_unique($emails));
+        if ($emails === []) {
+            return;
+        }
+        $subject = sprintf('[%s] Neue Anfrage #%s', sanitize_text_field((string) $settings['site_name']), (string) $ticket['ticket_code']);
+        $body = "Eine neue Anfrage ist eingegangen.\n\nAnfrage: #" . (string) $ticket['ticket_code']
+            . "\nBetreff: " . sanitize_text_field((string) ($ticket['subject'] ?: $ticket['topic_title'] ?: 'Anfrage'))
+            . "\nAbteilung: " . sanitize_text_field((string) ($ticket['department_name'] ?? ''))
+            . "\nVon: " . sanitize_text_field((string) $ticket['sender_name'])
+            . "\n\nÖffnen: " . admin_url('admin.php?page=feuer-kontaktform-tickets&feuer_search=' . rawurlencode((string) $ticket['ticket_code']));
+        if (! wp_mail($emails, $subject, $body)) {
+            $this->db->log('ticket_notification_email_failed', 'ticket', $ticket_id, ['recipient_count' => count($emails)]);
+        }
+    }
+
     private static function schedule_inbound_check(): void
     {
         add_filter('cron_schedules', [self::class, 'cron_schedules']);
@@ -103,7 +136,7 @@ final class Feuer_Kontaktform_Support_Plugin
         $token = sanitize_text_field((string) wp_unslash($_REQUEST['token'] ?? ''));
         $ticket = $ticket_id > 0 ? $this->db->get_ticket($ticket_id) : null;
 
-        if (! $ticket || ! $this->mailer->verify_delivery_confirmation($ticket, $token)) {
+        if (! $ticket || in_array((string) $ticket['status'], ['spam', 'trash'], true) || ! $this->mailer->verify_delivery_confirmation($ticket, $token)) {
             wp_die(
                 'Der Bestätigungslink ist ungültig oder nicht mehr aktuell.',
                 'Empfang konnte nicht bestätigt werden',
