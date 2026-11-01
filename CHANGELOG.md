@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.6.0] - 2026-11-02
+
+- Administrationsbereich mit einheitlicher Typografie, Abständen, Formularen, Karten, Tabs und Statusfarben überarbeitet.
+- Lesbarkeit und responsive Darstellung für Anfragen, Abteilungen, Einstellungen, Telegram und Protokolle verbessert.
+- Ungezieltes umbrechen beliebiger Wörter entfernt, damit Beschriftungen und Hinweise sauber lesbar bleiben.
+
 ## [3.5.1] - 2026-11-01
 
 - Antworten und erneutes Senden für archivierte Anfragen serverseitig gesperrt.
