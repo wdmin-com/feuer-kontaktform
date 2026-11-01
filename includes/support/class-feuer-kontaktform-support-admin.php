@@ -405,7 +405,7 @@ final class Feuer_Kontaktform_Support_Admin
                 $ok = false;
                 $result = ['success' => false, 'message' => 'Anfrage oder Antworttext fehlt.'];
 
-                if ($ticket && ! in_array((string) $ticket['status'], ['spam', 'trash'], true) && $message !== '') {
+                if ($ticket && ! in_array((string) $ticket['status'], ['spam', 'trash', 'archived'], true) && $message !== '') {
                     $settings = $this->db->get_settings();
                     $actor = wp_get_current_user();
                     $actor_name = $this->user_display_name($actor);
@@ -453,7 +453,7 @@ final class Feuer_Kontaktform_Support_Admin
             case 'resend_department_notification':
                 $ticket_id = absint($_POST['ticket_id'] ?? 0);
                 $ticket = $this->db->get_ticket($ticket_id);
-                if ($ticket && in_array((string) $ticket['status'], ['spam', 'trash'], true)) {
+                if ($ticket && in_array((string) $ticket['status'], ['spam', 'trash', 'archived'], true)) {
                     $ticket = null;
                 }
                 $settings = $this->db->get_settings();

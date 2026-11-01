@@ -1701,6 +1701,9 @@ final class Feuer_Kontaktform_Support_DB
                 'body' => '',
                 'raw_json' => wp_json_encode(['privacy_erased' => true]),
             ], ['ticket_id' => (int) $ticket['id']]);
+            $wpdb->update($this->ticket_notes_table, [
+                'body' => '',
+            ], ['ticket_id' => (int) $ticket['id']]);
             $wpdb->update($this->logs_table, [
                 'context_json' => wp_json_encode(['privacy_erased' => true]),
             ], [

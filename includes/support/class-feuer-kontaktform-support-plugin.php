@@ -733,6 +733,13 @@ final class Feuer_Kontaktform_Support_Plugin
                 ];
             }
 
+            foreach ($this->db->get_ticket_notes((int) $ticket['id']) as $index => $note) {
+                $data[] = [
+                    'name' => 'Interne Notiz ' . (string) ($index + 1) . ' (' . (string) $note['created_at'] . ')',
+                    'value' => (string) $note['body'],
+                ];
+            }
+
             $items[] = [
                 'group_id' => 'feuer-kontaktform',
                 'group_label' => 'Kontaktform',

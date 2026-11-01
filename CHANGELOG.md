@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.5.1] - 2026-11-01
+
+- Antworten und erneutes Senden für archivierte Anfragen serverseitig gesperrt.
+- Interne Notizen werden im WordPress-Datenschutzexport mit ausgegeben und bei einer Datenlöschung anonymisiert.
+
 ## [3.5.0] - 2026-11-01
 
 - Anfragen lassen sich vor dem Öffnen direkt als Spam markieren, archivieren oder in den Papierkorb verschieben.
