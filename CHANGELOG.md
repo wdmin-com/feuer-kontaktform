@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.6.1] - 2026-11-02
+
+- Filter und Massenaktionen im Posteingang kompakter angeordnet.
+- Leerfläche und graue Aktionsleiste unter jeder Anfrage entfernt.
+- Ticketliste nutzt jetzt die verfügbare Admin-Breite besser aus.
+
 ## [3.6.0] - 2026-11-02
 
 - Administrationsbereich mit einheitlicher Typografie, Abständen, Formularen, Karten, Tabs und Statusfarben überarbeitet.

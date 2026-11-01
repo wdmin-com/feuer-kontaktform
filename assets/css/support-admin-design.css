@@ -616,3 +616,66 @@
   .feuer-log-main { flex-direction: column; gap: 4px; }
   .feuer-update-install-form { align-items: flex-start; flex-direction: column; }
 }
+
+/* Compact ticket operations: keep controls close to the work they affect. */
+.feuer-tickets-page { max-width: none; }
+.feuer-ticket-panel .feuer-section-head { padding: 16px 20px; }
+.feuer-ticket-panel .feuer-section-body { padding: 16px 20px 20px; }
+.feuer-tickets-page .feuer-search-row { gap: 8px; margin-bottom: 12px; }
+.feuer-tickets-page .feuer-search-row input[type="search"] { min-height: 40px; }
+.feuer-ticket-filters {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.1fr) minmax(190px, 1.8fr) minmax(130px, 1fr) repeat(2, minmax(120px, .8fr)) minmax(125px, 1fr) auto;
+  align-items: end;
+  gap: 9px;
+  margin: 0 0 10px;
+  padding: 11px 12px;
+}
+.feuer-ticket-filters label { min-width: 0; margin: 0 !important; }
+.feuer-ticket-filters label :is(input, select) { width: 100%; }
+.feuer-ticket-filters > .button { min-height: 40px; }
+.feuer-ticket-bulk-form {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  padding: 9px 12px;
+}
+.feuer-ticket-bulk-form label { display: flex; align-items: center; gap: 10px; margin: 0 !important; }
+.feuer-ticket-bulk-form select { width: 190px; min-height: 38px; }
+.feuer-ticket-bulk-form .button { min-height: 38px; }
+.feuer-ticket-bulk-form .description { margin: 0; font-size: 11px; }
+.feuer-ticket-list { gap: 8px; }
+.feuer-ticket-entry { border-radius: 9px; }
+.feuer-tickets-page .feuer-ticket-card > summary { min-height: 96px; padding: 14px 17px; }
+.feuer-ticket-summary-title { font-size: 15px; }
+.feuer-ticket-summary-preview { max-width: 100%; }
+.feuer-ticket-quick-actions {
+  min-height: 0;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 14px 9px;
+  border: 0;
+  background: #fff;
+}
+.feuer-ticket-quick-actions .button { min-height: 32px; padding: 4px 10px; }
+.feuer-ticket-quick-actions .feuer-button-subtle { border-color: #e7c7c3; color: #96352f; }
+.feuer-ticket-quick-actions .feuer-button-subtle:hover { background: #fff7f6; }
+
+@media (max-width: 1150px) {
+  .feuer-ticket-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .feuer-ticket-filters > .button { width: 100%; }
+}
+@media (max-width: 782px) {
+  .feuer-ticket-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .feuer-ticket-bulk-form { align-items: flex-start; flex-wrap: wrap; }
+  .feuer-ticket-bulk-form label { align-items: flex-start; flex-direction: column; gap: 5px; }
+}
+@media (max-width: 520px) {
+  .feuer-ticket-filters { grid-template-columns: 1fr; }
+  .feuer-ticket-bulk-form { display: grid; grid-template-columns: 1fr auto; }
+  .feuer-ticket-bulk-form label { grid-column: 1 / -1; }
+  .feuer-ticket-bulk-form select { width: 100%; }
+  .feuer-ticket-quick-actions { justify-content: flex-start; padding: 0 10px 9px; }
+}
