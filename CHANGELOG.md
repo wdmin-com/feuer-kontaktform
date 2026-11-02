@@ -4,6 +4,8 @@
 
 - Filter im Posteingang nutzen gleich breite Zellen mit einheitlicher responsiver Spaltenzahl.
 - Such- und Filterfelder bleiben auch bei langen Themenbezeichnungen innerhalb ihres Rasters.
+- Einstellungen für E-Mail, SMTP und IMAP sowie Felder im Formular-Editor verwenden gleich breite Zellen.
+- Passwortfelder sind in die jeweilige responsive Eingaberaster integriert.
 
 ## [3.6.2] - 2026-11-02
 

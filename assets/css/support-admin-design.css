@@ -719,7 +719,7 @@
 .feuer-support-admin label,
 .feuer-support-admin :is(input, select, textarea) { min-width: 0; }
 .feuer-support-admin :is(input, select, textarea) { max-width: 100%; }
-.feuer-support-admin .feuer-field-row { grid-template-columns: minmax(90px, .8fr) minmax(120px, 1.1fr) minmax(90px, .7fr) minmax(90px, .7fr) minmax(70px, .55fr) minmax(150px, 1.1fr) minmax(180px, auto); }
+.feuer-support-admin .feuer-field-row { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .feuer-support-admin .feuer-field-row > * { min-width: 0; }
 .feuer-support-admin .feuer-field-actions { grid-column: auto; }
 .feuer-support-admin .feuer-department-head { align-items: center; padding: 16px 18px; }
@@ -781,4 +781,13 @@
   .feuer-support-admin .feuer-log-list { margin: 12px 15px 15px; }
   .feuer-support-admin .feuer-email-editor { padding: 12px; }
   .feuer-support-admin .feuer-email-editor-tabs { max-width: 100%; flex-wrap: wrap; }
+}
+
+/* Settings and field-builder controls share stable, equal-width cells. */
+.feuer-support-admin .feuer-settings-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .feuer-support-admin .feuer-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .feuer-support-admin .feuer-settings-grid { grid-template-columns: minmax(0, 1fr); }
 }

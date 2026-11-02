@@ -8,5 +8,5 @@
   "stable": true,
   "last_updated": "2026-11-02",
   "description": "Kontaktform ist ein Kontaktformular- und Anfragesystem für Websites freiwilliger Feuerwehren.",
-  "changelog": "Version 3.6.3: Gleich breite, responsive Filterfelder im Anfrage-Posteingang."
+  "changelog": "Version 3.6.3: Gleich breite, responsive Felder in Posteingang, Einstellungen und Formular-Editor."
 }

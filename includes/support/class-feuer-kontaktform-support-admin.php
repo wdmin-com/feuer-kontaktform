@@ -967,7 +967,7 @@ final class Feuer_Kontaktform_Support_Admin
                             <?php wp_nonce_field('feuer_support_admin'); ?>
                             <input type="hidden" name="feuer_support_action" value="save_settings">
                             <h2>E-Mail</h2>
-                            <div class="feuer-form-grid">
+                            <div class="feuer-form-grid feuer-settings-grid">
                                 <?php $this->input('base_email', 'Basis E-Mail', $settings['base_email'], 'email'); ?>
                                 <?php $this->input('from_email', 'Absender E-Mail', $settings['from_email'], 'email'); ?>
                                 <?php $this->input('from_name', 'Absender Name', $settings['from_name']); ?>
@@ -976,7 +976,7 @@ final class Feuer_Kontaktform_Support_Admin
                             <p class="description">Empfohlen: SMTP-Konto mit demselben Domain wie die Absender-E-Mail. Wenn ein separates SMTP-Plugin genutzt wird, diese Option deaktiviert lassen.</p>
                             <input type="hidden" name="smtp_enabled" value="0">
                             <label class="feuer-check-label"><input type="checkbox" name="smtp_enabled" value="1" <?php checked(! empty($settings['smtp_enabled'])); ?>> SMTP direkt im Plugin verwenden</label>
-                            <div class="feuer-form-grid">
+                            <div class="feuer-form-grid feuer-settings-grid">
                                 <?php $this->input('smtp_host', 'SMTP Host', $settings['smtp_host']); ?>
                                 <?php $this->input('smtp_port', 'SMTP Port', $settings['smtp_port'], 'number'); ?>
                                 <label>
@@ -988,12 +988,12 @@ final class Feuer_Kontaktform_Support_Admin
                                     </select>
                                 </label>
                                 <?php $this->input('smtp_username', 'SMTP Benutzername', $settings['smtp_username']); ?>
+                                <label>
+                                    SMTP Passwort
+                                    <input class="regular-text" type="password" name="smtp_password" value="" autocomplete="new-password" placeholder="<?php echo empty($settings['smtp_password']) ? 'Nicht gespeichert' : 'Gespeichert - leer lassen zum Beibehalten'; ?>">
+                                    <span class="description">Leer lassen, um ein gespeichertes Passwort beizubehalten.</span>
+                                </label>
                             </div>
-                            <label>
-                                SMTP Passwort
-                                <input class="regular-text" type="password" name="smtp_password" value="" autocomplete="new-password" placeholder="<?php echo empty($settings['smtp_password']) ? 'Nicht gespeichert' : 'Gespeichert - leer lassen zum Beibehalten'; ?>">
-                                <span class="description">Leer lassen, um ein gespeichertes Passwort beizubehalten.</span>
-                            </label>
                             <p><button class="button button-primary">Speichern</button></p>
                         </form>
                         <form method="post" class="feuer-subform">
@@ -1028,7 +1028,7 @@ final class Feuer_Kontaktform_Support_Admin
                             <?php if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) : ?>
                                 <p class="notice notice-warning inline">DISABLE_WP_CRON ist aktiv. Der Server muss WordPress-Cron extern aufrufen, sonst wird das Postfach nur manuell geprüft.</p>
                             <?php endif; ?>
-                            <div class="feuer-form-grid">
+                            <div class="feuer-form-grid feuer-settings-grid">
                                 <?php $this->input('ticket_mailbox_email', 'Ticket E-Mail', $settings['ticket_mailbox_email'], 'email'); ?>
                                 <?php $this->input('imap_host', 'IMAP Host', $settings['imap_host']); ?>
                                 <?php $this->input('imap_port', 'IMAP Port', $settings['imap_port'], 'number'); ?>
@@ -1042,12 +1042,12 @@ final class Feuer_Kontaktform_Support_Admin
                                 </label>
                                 <?php $this->input('imap_username', 'IMAP Benutzername', $settings['imap_username']); ?>
                                 <?php $this->input('imap_folder', 'IMAP Ordner', $settings['imap_folder']); ?>
+                                <label>
+                                    IMAP Passwort
+                                    <input class="regular-text" type="password" name="imap_password" value="" autocomplete="new-password" placeholder="<?php echo empty($settings['imap_password']) ? 'Nicht gespeichert' : 'Gespeichert - leer lassen zum Beibehalten'; ?>">
+                                    <span class="description">Leer lassen, um das gespeicherte Passwort beizubehalten.</span>
+                                </label>
                             </div>
-                            <label>
-                                IMAP Passwort
-                                <input class="regular-text" type="password" name="imap_password" value="" autocomplete="new-password" placeholder="<?php echo empty($settings['imap_password']) ? 'Nicht gespeichert' : 'Gespeichert - leer lassen zum Beibehalten'; ?>">
-                                <span class="description">Leer lassen, um das gespeicherte Passwort beizubehalten.</span>
-                            </label>
                             <h3>Weitere Postfächer für den E-Mail-Sammelabruf</h3>
                             <p class="description">Zusätzliche IMAP-Postfächer werden beim Cron-Lauf mit geprüft. Das Standard-Postfach oben bleibt der Reply-To-Absender für sichere Ticket-Antwortadressen.</p>
                             <?php $this->mailbox_rows($settings); ?>
