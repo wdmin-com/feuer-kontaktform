@@ -627,7 +627,9 @@
 .feuer-tickets-page .feuer-search-row input[type="search"] { min-height: 40px; }
 .feuer-ticket-filters {
   display: grid;
-  grid-template-columns: minmax(130px, 1.1fr) minmax(190px, 1.8fr) minmax(130px, 1fr) repeat(2, minmax(120px, .8fr)) minmax(125px, 1fr) auto;
+  /* Each filter is a deliberate equal-sized cell; content length must not
+     change the rhythm of the row (notably the longer topic option labels). */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   align-items: end;
   gap: 9px;
   margin: 0 0 10px;
@@ -635,7 +637,7 @@
 }
 .feuer-ticket-filters label { min-width: 0; margin: 0 !important; }
 .feuer-ticket-filters label :is(input, select) { width: 100%; }
-.feuer-ticket-filters > .button { min-height: 40px; }
+.feuer-ticket-filters > .button { width: 100%; min-height: 40px; }
 .feuer-ticket-bulk-form {
   display: flex;
   min-height: 0;
@@ -666,8 +668,7 @@
 .feuer-ticket-quick-actions .feuer-button-subtle:hover { background: #fff7f6; }
 
 @media (max-width: 1150px) {
-  .feuer-ticket-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .feuer-ticket-filters > .button { width: 100%; }
+  .feuer-ticket-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 782px) {
   .feuer-ticket-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -680,6 +681,13 @@
   .feuer-ticket-bulk-form label { grid-column: 1 / -1; }
   .feuer-ticket-bulk-form select { width: 100%; }
   .feuer-ticket-quick-actions { justify-content: flex-start; padding: 0 10px 9px; }
+}
+
+@media (min-width: 1151px) {
+  .feuer-ticket-filters > * { min-width: 0; }
+  .feuer-ticket-filters label { align-self: stretch; }
+  .feuer-ticket-filters label :is(input, select) { min-width: 0; }
+  .feuer-ticket-filters > .button { align-self: end; }
 }
 
 /* Consistent layout and overflow handling across every plugin admin screen. */

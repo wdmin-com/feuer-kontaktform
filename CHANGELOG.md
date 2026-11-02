@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.6.3] - 2026-11-02
+
+- Filter im Posteingang nutzen gleich breite Zellen mit einheitlicher responsiver Spaltenzahl.
+- Such- und Filterfelder bleiben auch bei langen Themenbezeichnungen innerhalb ihres Rasters.
+
 ## [3.6.2] - 2026-11-02
 
 - Admin-Layouts auf kleinen und mittleren Bildschirmbreiten vereinheitlicht und Überläufe in Tabellen und Formularen korrigiert.
