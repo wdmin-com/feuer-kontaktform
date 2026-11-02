@@ -1565,6 +1565,7 @@ final class Feuer_Kontaktform_Support_Admin
         $role_access = is_array($settings['role_access'] ?? null) ? $settings['role_access'] : [];
         $roles = $wp_roles instanceof WP_Roles ? $wp_roles->roles : [];
         ?>
+        <div class="feuer-table-scroll feuer-access-table-scroll" role="region" tabindex="0" aria-label="Berechtigungen pro Rolle">
         <table class="widefat striped">
             <thead>
                 <tr>
@@ -1596,6 +1597,7 @@ final class Feuer_Kontaktform_Support_Admin
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
         <p class="description">Hinweis: Wenn eine Rolle <strong>Anfragen beantworten</strong> darf, wird <strong>Anfragen ansehen</strong> automatisch mit aktiviert.</p>
         <?php
     }
@@ -1856,7 +1858,7 @@ final class Feuer_Kontaktform_Support_Admin
                 <label>Anzeige der Kontaktdaten<select name="contact_visibility"><option value="protected" <?php selected((string) ($department['contact_visibility'] ?? 'protected'), 'protected'); ?>>Geschützt nach Sicherheitsprüfung</option><option value="public" <?php selected((string) ($department['contact_visibility'] ?? 'protected'), 'public'); ?>>Direkt öffentlich anzeigen</option></select></label>
                 <label class="feuer-check-label"><input type="checkbox" name="contact_public" value="1" <?php checked(! empty($department['contact_public'])); ?>> Veröffentlichung für Besucher freigeben</label>
             </fieldset>
-            <label><input type="checkbox" name="department_is_active" value="1" <?php checked(! empty($department['is_active'])); ?>> aktiv</label>
+            <label class="feuer-check-label"><input type="checkbox" name="department_is_active" value="1" <?php checked(! empty($department['is_active'])); ?>> aktiv</label>
             <p><button class="button button-primary">Abteilung speichern</button></p>
         </form>
         <?php if ((int) $department['id'] > 0) : ?>
@@ -1927,7 +1929,7 @@ final class Feuer_Kontaktform_Support_Admin
                     </div>
                 </div>
                 <?php $this->auto_reply_macro_help(); ?>
-                <label><input type="checkbox" name="topic_is_active" value="1" <?php checked(! empty($topic['is_active'])); ?>> aktiv</label>
+                <label class="feuer-check-label"><input type="checkbox" name="topic_is_active" value="1" <?php checked(! empty($topic['is_active'])); ?>> aktiv</label>
                 <h4>Felder für dieses Thema</h4>
                 <div data-fields-list>
                     <?php foreach ((array) $topic['fields'] as $field) : ?>

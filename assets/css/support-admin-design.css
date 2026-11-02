@@ -72,7 +72,7 @@
 }
 .feuer-support-admin .button-primary:hover { border-color: var(--feuer-red-dark); background: var(--feuer-red-dark); }
 
-.feuer-support-admin :is(input[type="text"], input[type="email"], input[type="url"], input[type="number"], input[type="password"], input[type="search"], select, textarea) {
+.feuer-support-admin :is(input:not([type]), input[type="text"], input[type="email"], input[type="url"], input[type="number"], input[type="password"], input[type="search"], input[type="tel"], input[type="date"], select, textarea) {
   min-width: 0;
   min-height: 42px;
   padding: 8px 12px;
@@ -361,7 +361,7 @@
 .feuer-note-form label { display: grid; gap: 6px; font-weight: 700; }
 .feuer-note-form textarea { width: 100%; }
 
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
   .feuer-telegram-top, .feuer-telegram-bottom { grid-template-columns: 1fr; }
 }
 @media (max-width: 782px) {
@@ -577,6 +577,8 @@
   .feuer-home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .feuer-field-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .feuer-auto-reply-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
   .feuer-telegram-top,
   .feuer-telegram-bottom { grid-template-columns: 1fr; }
 }
@@ -678,4 +680,97 @@
   .feuer-ticket-bulk-form label { grid-column: 1 / -1; }
   .feuer-ticket-bulk-form select { width: 100%; }
   .feuer-ticket-quick-actions { justify-content: flex-start; padding: 0 10px 9px; }
+}
+
+/* Consistent layout and overflow handling across every plugin admin screen. */
+.feuer-support-admin {
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 1600px;
+  margin-top: 22px;
+}
+.feuer-support-admin.feuer-admin-home { max-width: 1180px; }
+.feuer-support-admin.feuer-telegram-page { max-width: 1440px; }
+.feuer-support-admin.feuer-tickets-page { max-width: none; }
+.feuer-support-admin *,
+.feuer-support-admin *::before,
+.feuer-support-admin *::after { box-sizing: border-box; }
+.feuer-support-admin :is(.feuer-admin-card, .feuer-tabs, .feuer-tab-panel, .feuer-section-body, form, fieldset) { min-width: 0; }
+.feuer-support-admin > h1 { margin: 0 0 8px; font-size: clamp(25px, 2vw, 30px); }
+.feuer-support-admin > .description { margin: 0 0 20px; }
+.feuer-support-admin .feuer-admin-card:hover { box-shadow: var(--feuer-shadow); }
+.feuer-support-admin .feuer-tab-nav {
+  gap: 4px;
+  padding: 10px 12px 0;
+  background: #f7f9f8;
+}
+.feuer-support-admin .feuer-tab-nav button { white-space: nowrap; }
+.feuer-support-admin .feuer-tab-panel > h2:first-child { margin-top: 0; }
+.feuer-support-admin .feuer-form-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.feuer-support-admin .feuer-form-grid > label,
+.feuer-support-admin label,
+.feuer-support-admin :is(input, select, textarea) { min-width: 0; }
+.feuer-support-admin :is(input, select, textarea) { max-width: 100%; }
+.feuer-support-admin .feuer-field-row { grid-template-columns: minmax(90px, .8fr) minmax(120px, 1.1fr) minmax(90px, .7fr) minmax(90px, .7fr) minmax(70px, .55fr) minmax(150px, 1.1fr) minmax(180px, auto); }
+.feuer-support-admin .feuer-field-row > * { min-width: 0; }
+.feuer-support-admin .feuer-field-actions { grid-column: auto; }
+.feuer-support-admin .feuer-department-head { align-items: center; padding: 16px 18px; }
+.feuer-support-admin .feuer-department-actions { flex-wrap: wrap; }
+.feuer-support-admin .feuer-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.feuer-support-admin .feuer-table-scroll:focus-visible { outline: 2px solid var(--feuer-red); outline-offset: 2px; }
+.feuer-support-admin .widefat { border-color: var(--feuer-line); }
+.feuer-support-admin .feuer-table-scroll .widefat { min-width: 620px; }
+.feuer-support-admin .feuer-access-table-scroll .widefat { min-width: 940px; }
+.feuer-support-admin .feuer-access-table-scroll th:first-child,
+.feuer-support-admin .feuer-access-table-scroll td:first-child { width: 190px; text-align: left; }
+.feuer-support-admin .feuer-access-table-scroll th:not(:first-child),
+.feuer-support-admin .feuer-access-table-scroll td:not(:first-child) { min-width: 150px; text-align: center; }
+.feuer-support-admin .widefat th { color: #465468; font-weight: 700; }
+.feuer-support-admin .widefat td,
+.feuer-support-admin .widefat th { padding: 11px 13px; vertical-align: middle; }
+.feuer-support-admin .feuer-inline-form > label,
+.feuer-support-admin .feuer-topic-box > label { margin-bottom: 16px; }
+.feuer-support-admin .feuer-contact-publish-settings {
+  min-width: 0;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--feuer-line);
+  border-radius: 10px;
+  background: var(--feuer-panel-soft);
+}
+.feuer-support-admin .feuer-contact-publish-settings legend { padding: 0 7px; color: var(--feuer-ink); font-weight: 700; }
+.feuer-support-admin .feuer-contact-publish-settings > :last-child { margin-bottom: 0; }
+.feuer-support-admin .feuer-mailbox-rows { display: grid; gap: 10px; }
+.feuer-support-admin .feuer-mailbox-rows .feuer-mailbox-row { margin: 0; }
+.feuer-support-admin .feuer-log-list { margin: 16px 24px 24px; }
+.feuer-support-admin .feuer-log-item { min-width: 0; }
+.feuer-support-admin .feuer-email-editor-head { align-items: center; }
+.feuer-support-admin .feuer-email-editor-head > div:first-child { min-width: 0; }
+.feuer-support-admin .feuer-macro-grid > div { align-items: start; }
+
+@media (max-width: 1100px) {
+  .feuer-support-admin .feuer-field-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .feuer-support-admin .feuer-field-actions { grid-column: 1 / -1; }
+  .feuer-support-admin .feuer-department-head { display: flex; }
+}
+@media (max-width: 782px) {
+  .feuer-support-admin { width: calc(100% - 28px); margin-top: 18px; }
+  .feuer-support-admin .feuer-department-head { align-items: flex-start; flex-direction: column; }
+  .feuer-support-admin .feuer-department-actions { justify-content: flex-start; }
+  .feuer-support-admin .feuer-tab-nav { padding-inline: 10px; }
+  .feuer-support-admin .feuer-section-body,
+  .feuer-support-admin .feuer-tab-panel { padding: 18px; }
+  .feuer-support-admin .feuer-log-list { margin: 14px 18px 18px; }
+  .feuer-support-admin .feuer-email-editor-head { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 520px) {
+  .feuer-support-admin { width: calc(100% - 20px); margin-top: 14px; }
+  .feuer-support-admin .feuer-field-row,
+  .feuer-support-admin .feuer-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .feuer-support-admin .feuer-field-actions { grid-column: auto; }
+  .feuer-support-admin .feuer-section-body,
+  .feuer-support-admin .feuer-tab-panel { padding: 15px; }
+  .feuer-support-admin .feuer-log-list { margin: 12px 15px 15px; }
+  .feuer-support-admin .feuer-email-editor { padding: 12px; }
+  .feuer-support-admin .feuer-email-editor-tabs { max-width: 100%; flex-wrap: wrap; }
 }

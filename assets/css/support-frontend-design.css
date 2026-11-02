@@ -19,6 +19,17 @@
 .feuer-contacts-directory *::after { box-sizing: border-box; }
 
 .feuer-support-shell { max-width: 940px; margin: 30px auto; }
+.feuer-support-empty,
+.feuer-contacts-empty {
+  max-width: 940px;
+  margin: 18px auto;
+  padding: 15px 18px;
+  border: 1px dashed var(--feuer-line);
+  border-radius: 10px;
+  background: var(--feuer-soft);
+  color: var(--feuer-muted);
+  line-height: 1.55;
+}
 .feuer-support-form {
   padding: clamp(24px, 4vw, 44px);
   border: 1px solid var(--feuer-line);

@@ -53,6 +53,8 @@ final class Feuer_Kontaktform_Support_Frontend
     {
         $contacts = $this->db->get_public_contacts();
         if ($contacts === []) {
+            wp_enqueue_style('feuer-kontaktform-support-frontend');
+            wp_enqueue_style('feuer-kontaktform-support-frontend-design');
             return '<p class="feuer-contacts-empty">Derzeit sind keine Ansprechpartner zur Veröffentlichung freigegeben.</p>';
         }
         wp_enqueue_style('feuer-kontaktform-support-frontend');
@@ -239,6 +241,8 @@ final class Feuer_Kontaktform_Support_Frontend
         $settings = $this->db->get_settings();
 
         if ($config === []) {
+            wp_enqueue_style('feuer-kontaktform-support-frontend');
+            wp_enqueue_style('feuer-kontaktform-support-frontend-design');
             return '<div class="feuer-support-empty">Keine aktive Kontaktstrecke konfiguriert.</div>';
         }
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.2] - 2026-11-02
+
+- Admin-Layouts auf kleinen und mittleren Bildschirmbreiten vereinheitlicht und Überläufe in Tabellen und Formularen korrigiert.
+- Zuständigkeitsmatrix mit eigener horizontaler Scrollfläche und klarer Spaltenausrichtung versehen.
+- Checkbox-Beschriftungen, Kontaktveröffentlichung und IMAP-Postfachgruppen im Editor verbessert.
+- Leere Frontend-Zustände werden jetzt gestaltet ausgegeben und laden dafür die nötigen Styles.
+- Mobile Navigation der Plugin-Informationsseite sichtbar gemacht.
+
 ## [3.6.1] - 2026-11-02
 
 - Filter und Massenaktionen im Posteingang kompakter angeordnet.
