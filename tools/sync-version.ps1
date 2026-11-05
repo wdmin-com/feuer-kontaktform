@@ -53,6 +53,6 @@ $updatePath = Join-Path $root 'update.json'
 $update = [System.IO.File]::ReadAllText($updatePath, $utf8NoBom) | ConvertFrom-Json
 $update.version = $Version
 $update.last_updated = Get-Date -Format 'yyyy-MM-dd'
-$update.changelog = "Version ${Version}: Stabilitaets-, Sicherheits- und Betriebsverbesserungen."
+$update.changelog = "Version ${Version}: Einheitliche Admin-Layouts, reduzierte personenbezogene Logdaten, korrigierte deutsche Texte und eine zuverlässigere Update-Prüfung."
 $json = $update | ConvertTo-Json -Depth 8
 [System.IO.File]::WriteAllText($updatePath, $json, $utf8NoBom)

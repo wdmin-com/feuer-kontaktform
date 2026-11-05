@@ -1,5 +1,15 @@
 # Changelog
 
+
+## [3.6.4] - 2026-11-05
+
+- Admin-Formulare erhalten einheitliche Zellgrößen und eine konsistente responsive Spaltenaufteilung.
+- Logdaten speichern IP-Adressen nur noch gekürzt; E-Mail-Adressen und IPs werden auch in Logkontexten maskiert.
+- Veraltete Update-Metadaten werden als Fehler angezeigt, statt fälschlich „kein Update verfügbar“ zu melden.
+- Logo-Vorschau bleibt bei leerer Logo-URL zuverlässig verborgen.
+- Abteilungs- und Themenstatus, E-Mail-Editor und Plugin-Übersicht sauber ausgerichtet.
+- Deutsche Oberfläche und Hinweise sprachlich korrigiert.
+
 ## [3.6.3] - 2026-11-02
 
 - Filter im Posteingang nutzen gleich breite Zellen mit einheitlicher responsiver Spaltenzahl.

@@ -166,6 +166,10 @@ final class Feuer_Kontaktform_Updater
         if (! isset($transient->no_update) || ! is_array($transient->no_update)) {
             $transient->no_update = [];
         }
+        if ((string) ($info['error'] ?? '') !== '') {
+            unset($transient->response[$plugin_file], $transient->no_update[$plugin_file]);
+            return $transient;
+        }
         if (empty($info['update_available'])) {
             unset($transient->response[$plugin_file]);
             $transient->no_update[$plugin_file] = (object) [
@@ -282,6 +286,7 @@ final class Feuer_Kontaktform_Updater
         }
 
         $version = sanitize_text_field((string) ($decoded['version'] ?? ''));
+        $installed_version = $this->installed_version();
         $download_url = esc_url_raw((string) ($decoded['download_url'] ?? self::UPDATE_BASE_URL . 'release/latest/feuer-kontaktform.zip'));
         $result = [
             'version' => $version,
@@ -292,9 +297,17 @@ final class Feuer_Kontaktform_Updater
             'last_updated' => sanitize_text_field((string) ($decoded['last_updated'] ?? '')),
             'description' => wp_kses_post((string) ($decoded['description'] ?? '')),
             'changelog' => wp_kses_post((string) ($decoded['changelog'] ?? '')),
-            'update_available' => $version !== '' && version_compare($version, $this->installed_version(), '>'),
+            'update_available' => $version !== '' && version_compare($version, $installed_version, '>'),
             'error' => '',
         ];
+
+        if ($version !== '' && $installed_version !== '' && version_compare($version, $installed_version, '<')) {
+            $result['error'] = sprintf(
+                'Der Update-Server meldet Version %1$s, die installierte Version ist jedoch %2$s. Bitte aktualisieren Sie die Update-Metadaten auf dem Server.',
+                $version,
+                $installed_version
+            );
+        }
 
         if ($download_url === '' || ! str_starts_with($download_url, self::UPDATE_BASE_URL)) {
             $result['download_url'] = '';
@@ -355,6 +368,11 @@ final class Feuer_Kontaktform_Updater
 
         $transient->last_checked = time();
         unset($transient->response[$plugin_file], $transient->no_update[$plugin_file]);
+
+        if ((string) ($info['error'] ?? '') !== '') {
+            set_site_transient('update_plugins', $transient);
+            return;
+        }
 
         if (! empty($info['update_available']) && (string) ($info['download_url'] ?? '') !== '') {
             $transient->response[$plugin_file] = (object) [

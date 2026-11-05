@@ -149,7 +149,7 @@ final class Feuer_Kontaktform_Support_Plugin
         if ($request_method !== 'POST' && empty($settings['department_access_confirmation_required'])) {
             if (! $this->db->confirm_delivery($ticket_id)) {
                 wp_die(
-                    'Die Empfangsbestaetigung konnte nicht gespeichert werden. Bitte informieren Sie den Website-Administrator.',
+                    'Die Empfangsbestätigung konnte nicht gespeichert werden. Bitte informieren Sie den Website-Administrator.',
                     'Technischer Fehler',
                     ['response' => 500]
                 );
@@ -274,7 +274,7 @@ final class Feuer_Kontaktform_Support_Plugin
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Empfang bestaetigen · Anfrage Nr. <?php echo esc_html((string) $ticket['ticket_code']); ?></title>
+            <title>Empfang bestätigen · Anfrage Nr. <?php echo esc_html((string) $ticket['ticket_code']); ?></title>
             <style>
                 body{margin:0;background:#eef1f4;color:#20242a;font-family:Arial,Helvetica,sans-serif;line-height:1.5}
                 main{width:min(720px,calc(100% - 28px));margin:40px auto;padding:28px 0;border-top:4px solid #b3192b}
@@ -290,18 +290,18 @@ final class Feuer_Kontaktform_Support_Plugin
         <body>
         <main>
             <small><?php echo esc_html($site_name); ?></small>
-            <h1>Empfang der Anfrage bestaetigen</h1>
+            <h1>Empfang der Anfrage bestätigen</h1>
             <?php if ($notice !== '') : ?><div class="notice"><?php echo esc_html($notice); ?></div><?php endif; ?>
             <?php if ($error !== '') : ?><div class="error"><?php echo esc_html($error); ?></div><?php endif; ?>
             <div class="box">
-                <p>Bitte bestaetigen Sie zuerst, dass die Anfrage Nr. <strong><?php echo esc_html((string) $ticket['ticket_code']); ?></strong> die zustaendige Abteilung erreicht hat.</p>
-                <p>Erst danach wird der geschuetzte Browserdialog mit den vollstaendigen Anfragedaten geoeffnet.</p>
+                <p>Bitte bestätigen Sie zuerst, dass die Anfrage Nr. <strong><?php echo esc_html((string) $ticket['ticket_code']); ?></strong> die zuständige Abteilung erreicht hat.</p>
+                <p>Erst danach wird der geschützte Browserdialog mit den vollständigen Anfragedaten geöffnet.</p>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="feuer_department_ticket">
                     <input type="hidden" name="ticket" value="<?php echo esc_attr((string) $ticket['id']); ?>">
                     <input type="hidden" name="code" value="<?php echo esc_attr($token); ?>">
                     <input type="hidden" name="feuer_department_action" value="confirm">
-                    <button type="submit">Empfang bestaetigen und Anfrage oeffnen</button>
+                    <button type="submit">Empfang bestätigen und Anfrage öffnen</button>
                 </form>
             </div>
         </main>

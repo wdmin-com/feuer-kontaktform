@@ -703,6 +703,10 @@
   background: #fff;
 }
 
+.feuer-logo-preview[hidden] {
+  display: none !important;
+}
+
 .feuer-subform {
   margin-top: 18px;
   padding-top: 18px;

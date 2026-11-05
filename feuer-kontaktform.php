@@ -2,9 +2,9 @@
 /**
  * Plugin Name: Feuer-Kontaktform
  * Plugin URI: https://wdmin.com/plugins/feuer-kontaktform/
-  * Description: Support- und Anfrageformular fuer Freiwillige Feuerwehren mit Abteilungen, Themen, Datenschutz, AJAX-Wizard, Protokollen und Entwickler-Updates.
- * Version: 3.6.3
-  * Author: Walter Faerber
+  * Description: Support- und Anfrageformular für Freiwillige Feuerwehren mit Abteilungen, Themen, Datenschutz, AJAX-Wizard, Protokollen und Entwickler-Updates.
+ * Version: 3.6.4
+  * Author: Walter Färber
  * Author URI: https://wdmin.com/
  * Requires at least: 7.1
  * Requires PHP: 8.1
@@ -16,7 +16,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('FEUER_KONTAKTFORM_VERSION', '3.6.3');
+define('FEUER_KONTAKTFORM_VERSION', '3.6.4');
 define('FEUER_KONTAKTFORM_FILE', __FILE__);
 define('FEUER_KONTAKTFORM_PATH', plugin_dir_path(__FILE__));
 define('FEUER_KONTAKTFORM_URL', plugin_dir_url(__FILE__));

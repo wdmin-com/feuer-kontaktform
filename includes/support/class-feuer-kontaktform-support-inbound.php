@@ -48,7 +48,7 @@ final class Feuer_Kontaktform_Support_Inbound
                 $errors = function_exists('imap_errors') ? (array) imap_errors() : [];
                 $this->db->log('inbound_mail_check_failed', 'mailbox', 0, [
                     'mailbox' => (string) $mailbox_config['email'],
-                    'message' => $errors !== [] ? implode(' | ', array_map('strval', $errors)) : 'Die IMAP-Verbindung konnte nicht geoeffnet werden.',
+                    'message' => $errors !== [] ? implode(' | ', array_map('strval', $errors)) : 'Die IMAP-Verbindung konnte nicht geöffnet werden.',
                 ]);
                 continue;
             }
@@ -84,7 +84,7 @@ final class Feuer_Kontaktform_Support_Inbound
 
         $success = $failed === 0;
         $message = sprintf(
-            'Posteingang geprueft: %d Postfach/Postfaecher, %d Nachricht(en) verarbeitet, %d Nachricht(en) ignoriert, %d Fehler.',
+            'Posteingang geprüft: %d Postfach/Postfächer, %d Nachricht(en) verarbeitet, %d Nachricht(en) ignoriert, %d Fehler.',
             $checked,
             $processed,
             $ignored,

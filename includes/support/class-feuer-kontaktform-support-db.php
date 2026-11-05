@@ -1881,11 +1881,46 @@ final class Feuer_Kontaktform_Support_DB
             'action' => sanitize_key($action),
             'object_type' => sanitize_key($object_type),
             'object_id' => $object_id,
-            'ip_address' => $this->current_ip(),
+            'ip_address' => $this->anonymize_ip_address($this->current_ip()),
             'user_agent' => sanitize_textarea_field((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')),
-            'context_json' => wp_json_encode($context),
+            'context_json' => wp_json_encode($this->sanitize_log_context($context)),
             'created_at' => current_time('mysql'),
         ]);
+    }
+
+    private function anonymize_ip_address(string $ip_address): string
+    {
+        $packed = @inet_pton($ip_address);
+        if (! is_string($packed)) {
+            return '';
+        }
+
+        if (strlen($packed) === 4) {
+            return (string) inet_ntop(substr($packed, 0, 3) . "\0") . '/24';
+        }
+
+        return (string) inet_ntop(substr($packed, 0, 6) . str_repeat("\0", 10)) . '/48';
+    }
+
+    private function sanitize_log_context(array $context): array
+    {
+        foreach ($context as $key => $value) {
+            if (is_array($value)) {
+                $context[$key] = $this->sanitize_log_context($value);
+                continue;
+            }
+
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $value = preg_replace('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/iu', '[E-Mail maskiert]', $value) ?? $value;
+            $context[$key] = preg_replace_callback('/(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])|(?<![\w:])(?:[A-F0-9]{0,4}:){2,7}[A-F0-9]{0,4}(?![\w:])/iu', function (array $matches): string {
+                return filter_var($matches[0], FILTER_VALIDATE_IP) ? $this->anonymize_ip_address($matches[0]) : $matches[0];
+            }, $value) ?? $value;
+        }
+
+        return $context;
     }
 
     private function seed_defaults(): void

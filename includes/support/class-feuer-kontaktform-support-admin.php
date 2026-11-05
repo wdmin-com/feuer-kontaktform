@@ -653,7 +653,7 @@ final class Feuer_Kontaktform_Support_Admin
                                     <span>Status: <strong><?php echo esc_html((string) $ticket['status']); ?></strong></span>
                                     <span>Eingang: <strong><?php echo (string) ($ticket['origin'] ?? '') === 'direct_email' ? 'Direkte E-Mail' : 'Kontaktformular'; ?></strong></span>
                                     <span>Datenschutz: <strong><?php echo empty($ticket['privacy_required']) ? 'deaktiviert' : (! empty($ticket['privacy_accepted']) ? 'ja' : 'nein'); ?></strong> / <?php echo esc_html((string) $ticket['privacy_version']); ?></span>
-                                    <span>IP: <strong><?php echo esc_html((string) $ticket['ip_address']); ?></strong></span>
+                                    <span>IP (gekürzt): <strong><?php echo esc_html($this->mask_ip_address((string) $ticket['ip_address'])); ?></strong></span>
                                     <span>Gerät: <strong><?php echo esc_html((string) $ticket['device_type']); ?></strong></span>
                                     <span>Browser: <strong><?php echo esc_html((string) $ticket['browser']); ?></strong></span>
                                 </div>
@@ -973,7 +973,7 @@ final class Feuer_Kontaktform_Support_Admin
                                 <?php $this->input('from_name', 'Absender Name', $settings['from_name']); ?>
                             </div>
                             <h3>SMTP Versand</h3>
-                            <p class="description">Empfohlen: SMTP-Konto mit demselben Domain wie die Absender-E-Mail. Wenn ein separates SMTP-Plugin genutzt wird, diese Option deaktiviert lassen.</p>
+                            <p class="description">Empfohlen: SMTP-Konto mit derselben Domain wie die Absender-E-Mail. Wenn ein separates SMTP-Plugin genutzt wird, diese Option deaktiviert lassen.</p>
                             <input type="hidden" name="smtp_enabled" value="0">
                             <label class="feuer-check-label"><input type="checkbox" name="smtp_enabled" value="1" <?php checked(! empty($settings['smtp_enabled'])); ?>> SMTP direkt im Plugin verwenden</label>
                             <div class="feuer-form-grid feuer-settings-grid">
@@ -1097,7 +1097,7 @@ final class Feuer_Kontaktform_Support_Admin
                             <?php wp_nonce_field('feuer_support_admin'); ?>
                             <input type="hidden" name="feuer_support_action" value="save_settings">
                             <h2>E-Mail Zustellbarkeit</h2>
-                            <p class="description">Diese Einstellungen reduzieren Spam-Risiken. Die wichtigsten Punkte bleiben SPF, DKIM und DMARC im DNS des Absender-Domains sowie ein sauber konfigurierter SMTP-Versand.</p>
+                            <p class="description">Diese Einstellungen reduzieren Spam-Risiken. Die wichtigsten Punkte bleiben SPF, DKIM und DMARC im DNS der Absender-Domain sowie ein sauber konfigurierter SMTP-Versand.</p>
                             <?php if (! empty($settings['ticket_mailbox_enabled'])) : ?>
                                 <p class="notice notice-info inline">Das Ticket-Postfach ist aktiv. Reply-To wird deshalb automatisch auf die sichere Anfrage-Adresse des Ticket-Postfachs gesetzt; die beiden manuellen Reply-To-Auswahlen gelten nur bei deaktiviertem Ticket-Postfach.</p>
                             <?php endif; ?>
@@ -1180,8 +1180,8 @@ final class Feuer_Kontaktform_Support_Admin
                             <?php $this->input('privacy_version', 'Datenschutz-Version', $settings['privacy_version']); ?>
                             <h3>Ticket-Zugriff der Abteilung</h3>
                             <input type="hidden" name="department_access_confirmation_required" value="0">
-                            <label class="feuer-check-label"><input type="checkbox" name="department_access_confirmation_required" value="1" <?php checked(! empty($settings['department_access_confirmation_required'])); ?>> Empfangsbestaetigung vor dem Anzeigen der Anfrage erzwingen</label>
-                            <p class="description">Aktiv: Die Abteilung muss den Empfang bestaetigen, bevor die Anfrage im geschuetzten Browserdialog sichtbar wird. Inaktiv: Der sichere Link oeffnet die Anfrage direkt und markiert den Empfang automatisch.</p>
+                            <label class="feuer-check-label"><input type="checkbox" name="department_access_confirmation_required" value="1" <?php checked(! empty($settings['department_access_confirmation_required'])); ?>> Empfangsbestätigung vor dem Anzeigen der Anfrage erzwingen</label>
+                            <p class="description">Aktiv: Die Abteilung muss den Empfang bestätigen, bevor die Anfrage im geschützten Browserdialog sichtbar wird. Inaktiv: Der sichere Link öffnet die Anfrage direkt und markiert den Empfang automatisch.</p>
                             <label>Text nach erfolgreichem Versand<textarea name="ticket_success_text" rows="4" class="large-text"><?php echo esc_textarea((string) $settings['ticket_success_text']); ?></textarea></label>
                             <p><button class="button button-primary">Speichern</button></p>
                         </form>
@@ -1263,7 +1263,7 @@ final class Feuer_Kontaktform_Support_Admin
                                 <div><span>Status</span><strong><?php echo esc_html($this->update_status_label($update)); ?></strong></div>
                             </div>
                             <p>Plugin-Seite: <a href="<?php echo esc_url((string) $update['base_url']); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html((string) $update['base_url']); ?></a></p>
-                            <p class="description">Direkte Paket-URLs werden im Plugin nicht angezeigt. Updates laufen intern ueber den WordPress-Updater.</p>
+                            <p class="description">Direkte Paket-URLs werden im Plugin nicht angezeigt. Updates laufen intern über den WordPress-Updater.</p>
                             <?php if ((string) $update['checked_at'] !== '') : ?><p>Letzte manuelle Prüfung: <strong><?php echo esc_html((string) $update['checked_at']); ?></strong></p><?php endif; ?>
                             <?php if (! empty($update['error'])) : ?><p class="notice notice-error inline"><?php echo esc_html((string) $update['error']); ?></p><?php endif; ?>
                             <form method="post">
@@ -1294,7 +1294,7 @@ final class Feuer_Kontaktform_Support_Admin
                                 <?php wp_nonce_field('feuer_support_admin'); ?>
                                 <input type="hidden" name="feuer_support_action" value="download_tickets_backup">
                                 <h3>Alle Anfragen sichern</h3>
-                                <p class="description">Exportiert nur Abteilungen, Themen, alle Anfragen und den Nachrichtenverlauf als JSON. Gut fuer regelmaessige Archivierung ohne Systemeinstellungen und Protokolle.</p>
+                                <p class="description">Exportiert nur Abteilungen, Themen, alle Anfragen und den Nachrichtenverlauf als JSON. Gut für die regelmäßige Archivierung ohne Systemeinstellungen und Protokolle.</p>
                                 <p><button class="button">Alle Anfragen als JSON herunterladen</button></p>
                             </form>
                         </div>
@@ -1373,7 +1373,7 @@ final class Feuer_Kontaktform_Support_Admin
                             <div class="feuer-log-meta">
                                 <span><?php echo esc_html((string) $log['created_at']); ?></span>
                                 <span>Admin: <?php echo esc_html($user ? $this->user_display_name($user) : ((int) $log['actor_id'] > 0 ? '#' . (string) $log['actor_id'] : 'System')); ?></span>
-                                <span>IP: <?php echo esc_html((string) $log['ip_address']); ?></span>
+                                <span>IP (gekürzt): <?php echo esc_html($this->mask_ip_address((string) $log['ip_address'])); ?></span>
                             </div>
                             <?php $context = $this->format_context((string) ($log['context_json'] ?? '')); ?>
                             <?php if ($context !== '') : ?><p class="feuer-log-context"><?php echo esc_html($context); ?></p><?php endif; ?>
@@ -1523,10 +1523,34 @@ final class Feuer_Kontaktform_Support_Admin
                 $value = $value ? 'ja' : 'nein';
             }
 
-            $parts[] = (string) $key . ': ' . (string) $value;
+            $value = (string) $value;
+            $value = preg_replace('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/iu', '[E-Mail maskiert]', $value) ?? $value;
+            $value = preg_replace_callback('/(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w./])|(?<![\w:])(?:[A-F0-9]{0,4}:){2,7}[A-F0-9]{0,4}(?![\w:/])/iu', function (array $matches): string {
+                return filter_var($matches[0], FILTER_VALIDATE_IP) ? $this->mask_ip_address($matches[0]) : $matches[0];
+            }, $value) ?? $value;
+
+            $parts[] = (string) $key . ': ' . $value;
         }
 
         return implode(' | ', $parts);
+    }
+
+    private function mask_ip_address(string $ip_address): string
+    {
+        if (preg_match('/\/(?:24|48)$/', $ip_address)) {
+            return $ip_address;
+        }
+
+        $packed = @inet_pton($ip_address);
+        if (! is_string($packed)) {
+            return 'nicht verfügbar';
+        }
+
+        if (strlen($packed) === 4) {
+            return inet_ntop(substr($packed, 0, 3) . "\0") . '/24';
+        }
+
+        return inet_ntop(substr($packed, 0, 6) . str_repeat("\0", 10)) . '/48';
     }
 
     private function update_status_label(array $update): string
