@@ -65,7 +65,7 @@ final class Feuer_Kontaktform_Support_Plugin
         add_filter('cron_schedules', [self::class, 'cron_schedules']);
         add_filter('wp_privacy_personal_data_exporters', [$this, 'register_privacy_exporter']);
         add_filter('wp_privacy_personal_data_erasers', [$this, 'register_privacy_eraser']);
-        add_filter('fca_analytics_event_definitions', [$this, 'register_analytics_events']);
+        add_filter('feuer_cookie_analytics_analytics_event_definitions', [$this, 'register_analytics_events']);
         $this->updater->register();
         $this->admin->register();
         $this->frontend->register();

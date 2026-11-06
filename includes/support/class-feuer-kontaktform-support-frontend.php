@@ -207,8 +207,8 @@ final class Feuer_Kontaktform_Support_Frontend
 
         // The analytics API independently checks for valid FCA analytics consent.
         // Send only a fixed event and generic path; never include ticket data.
-        if (function_exists('fca_analytics_track_event')) {
-            fca_analytics_track_event('contact_form_submitted', 'kontaktformular', ['path' => '/kontaktformular/']);
+        if (function_exists('feuer_cookie_analytics_analytics_track_event')) {
+            feuer_cookie_analytics_analytics_track_event('contact_form_submitted', 'kontaktformular', ['path' => '/kontaktformular/']);
         }
 
         $ticket['id'] = $ticket_id;
@@ -637,8 +637,8 @@ final class Feuer_Kontaktform_Support_Frontend
 
     private function external_resource_allowed(string $resource): bool
     {
-        return function_exists('fca_consent_allows')
-            && fca_consent_allows('feuer-kontaktform', $resource);
+        return function_exists('feuer_cookie_analytics_consent_allows')
+            && feuer_cookie_analytics_consent_allows('feuer-kontaktform', $resource);
     }
 
     private function verify_antispam_token(string $url, string $secret, string $token): array

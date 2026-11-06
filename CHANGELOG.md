@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.6.6] - 2026-11-07
+
+- FCA-Anbindung nutzt die vollständig benannten Feuer-Cookie-Analytics-Funktionen und Ereignisfilter.
+- Analyseereignisse und externe CAPTCHA-Ressourcen bleiben an die jeweils passende gültige Einwilligung gebunden.
+
 ## [3.6.5] - 2026-11-06
 
 - Feuer-Cookie-Analytics erfasst Formularsendungen nur bei gültiger Analyse-Einwilligung und ohne übermittelte Ticket- oder Kontaktdaten.
