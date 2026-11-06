@@ -65,6 +65,7 @@ final class Feuer_Kontaktform_Support_Plugin
         add_filter('cron_schedules', [self::class, 'cron_schedules']);
         add_filter('wp_privacy_personal_data_exporters', [$this, 'register_privacy_exporter']);
         add_filter('wp_privacy_personal_data_erasers', [$this, 'register_privacy_eraser']);
+        add_filter('fca_analytics_event_definitions', [$this, 'register_analytics_events']);
         $this->updater->register();
         $this->admin->register();
         $this->frontend->register();
@@ -681,6 +682,14 @@ final class Feuer_Kontaktform_Support_Plugin
         return $exporters;
     }
 
+    /** Registriert datensparsame Ereignisse für die optionale FCA-Besucherstatistik. */
+    public function register_analytics_events(array $events): array
+    {
+        $events['contact_form_submitted'] = 'Kontaktformular gesendet';
+
+        return $events;
+    }
+
     public function register_privacy_eraser(array $erasers): array
     {
         $erasers['feuer-kontaktform'] = [
@@ -712,6 +721,9 @@ final class Feuer_Kontaktform_Support_Plugin
                 ['name' => 'Datenschutz-Schritt aktiv', 'value' => ! empty($ticket['privacy_required']) ? 'ja' : 'nein'],
                 ['name' => 'Datenschutz bestätigt', 'value' => empty($ticket['privacy_required']) ? 'nicht abgefragt' : (! empty($ticket['privacy_accepted']) ? 'ja' : 'nein')],
                 ['name' => 'Datenschutz-Version', 'value' => (string) $ticket['privacy_version']],
+                ['name' => 'Einwilligung dokumentiert am (Anfrageeingang)', 'value' => (string) $ticket['created_at']],
+                ['name' => 'Datenschutzerklärung', 'value' => (string) ($ticket['privacy_url'] ?? '')],
+                ['name' => 'Gespeicherter Einwilligungstext', 'value' => (string) ($ticket['consent_text'] ?? '')],
                 ['name' => 'IP-Adresse', 'value' => (string) $ticket['ip_address']],
                 ['name' => 'Cookie-ID', 'value' => (string) $ticket['visitor_cookie']],
                 ['name' => 'Gerät', 'value' => (string) $ticket['device_type']],

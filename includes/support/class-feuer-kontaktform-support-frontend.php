@@ -188,7 +188,9 @@ final class Feuer_Kontaktform_Support_Frontend
             'privacy_url' => $privacy_enabled ? (string) $settings['privacy_url'] : '',
             'consent_text' => $privacy_enabled ? (string) $settings['privacy_text'] : 'Datenschutz-Schritt war in den Plugin-Einstellungen deaktiviert.',
             'ip_address' => $ip_address,
-            'visitor_cookie' => $this->visitor_cookie(),
+            // FCA visitor analytics uses its own consent-gated pseudonymous ID.
+            // Do not create a second long-lived visitor cookie for the ticket.
+            'visitor_cookie' => '',
             'browser' => $this->browser_label(),
             'device_type' => $this->device_type(),
             'user_agent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
@@ -201,6 +203,12 @@ final class Feuer_Kontaktform_Support_Frontend
             wp_send_json_error([
                 'message' => 'Ihre Anfrage konnte nicht gespeichert werden. Bitte versuchen Sie es erneut. Wenn der Fehler bleibt, prüfen Sie die Plugin-Protokolle.',
             ], 500);
+        }
+
+        // The analytics API independently checks for valid FCA analytics consent.
+        // Send only a fixed event and generic path; never include ticket data.
+        if (function_exists('fca_analytics_track_event')) {
+            fca_analytics_track_event('contact_form_submitted', 'kontaktformular', ['path' => '/kontaktformular/']);
         }
 
         $ticket['id'] = $ticket_id;
@@ -224,6 +232,8 @@ final class Feuer_Kontaktform_Support_Frontend
 
     private function render(array $atts, bool $quick): string
     {
+        $this->clear_legacy_visitor_cookie();
+
         $atts = shortcode_atts([
             'department' => '',
             'topic' => '',
@@ -359,11 +369,10 @@ final class Feuer_Kontaktform_Support_Frontend
                     <p class="feuer-kicker">Sicherheit</p>
                     <h2>Bitte beantworten Sie die Sicherheitsfrage</h2>
                     <label class="feuer-field"><span><?php echo esc_html((string) $captcha['question']); ?></span><input type="number" name="captcha_answer" inputmode="numeric" required></label>
-                    <?php if (! empty($settings['turnstile_enabled']) && (string) $settings['turnstile_site_key'] !== '') : ?>
+                    <?php if (! empty($settings['turnstile_enabled']) && (string) $settings['turnstile_site_key'] !== '' && $this->external_resource_allowed('cloudflare-turnstile')) : ?>
                         <div class="cf-turnstile" data-sitekey="<?php echo esc_attr((string) $settings['turnstile_site_key']); ?>"></div>
                         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-                    <?php endif; ?>
-                    <?php if (! empty($settings['recaptcha_enabled']) && (string) $settings['recaptcha_site_key'] !== '') : ?>
+                    <?php elseif (empty($settings['turnstile_enabled']) && ! empty($settings['recaptcha_enabled']) && (string) $settings['recaptcha_site_key'] !== '' && $this->external_resource_allowed('google-recaptcha')) : ?>
                         <div class="g-recaptcha" data-sitekey="<?php echo esc_attr((string) $settings['recaptcha_site_key']); ?>"></div>
                         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
                     <?php endif; ?>
@@ -596,6 +605,10 @@ final class Feuer_Kontaktform_Support_Frontend
     private function validate_external_antispam(array $settings): array
     {
         if (! empty($settings['turnstile_enabled'])) {
+            if (! $this->external_resource_allowed('cloudflare-turnstile')) {
+                return ['error' => ''];
+            }
+
             $token = sanitize_text_field((string) wp_unslash($_POST['cf-turnstile-response'] ?? ''));
             $secret = (string) ($settings['turnstile_secret_key'] ?? '');
             if ($secret === '' || $token === '') {
@@ -606,6 +619,10 @@ final class Feuer_Kontaktform_Support_Frontend
         }
 
         if (! empty($settings['recaptcha_enabled'])) {
+            if (! $this->external_resource_allowed('google-recaptcha')) {
+                return ['error' => ''];
+            }
+
             $token = sanitize_text_field((string) wp_unslash($_POST['g-recaptcha-response'] ?? ''));
             $secret = (string) ($settings['recaptcha_secret_key'] ?? '');
             if ($secret === '' || $token === '') {
@@ -616,6 +633,12 @@ final class Feuer_Kontaktform_Support_Frontend
         }
 
         return ['error' => ''];
+    }
+
+    private function external_resource_allowed(string $resource): bool
+    {
+        return function_exists('fca_consent_allows')
+            && fca_consent_allows('feuer-kontaktform', $resource);
     }
 
     private function verify_antispam_token(string $url, string $secret, string $token): array
@@ -641,36 +664,31 @@ final class Feuer_Kontaktform_Support_Frontend
         return ['error' => ''];
     }
 
-    private function visitor_cookie(): string
+    private function current_ip(): string
     {
-        $value = sanitize_text_field((string) ($_COOKIE[self::COOKIE_NAME] ?? ''));
-        if ($value !== '') {
-            return $value;
+        $candidate = (string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ($_SERVER['REMOTE_ADDR'] ?? ''));
+        return sanitize_text_field(explode(',', $candidate)[0]);
+    }
+
+    private function clear_legacy_visitor_cookie(): void
+    {
+        if (! isset($_COOKIE[self::COOKIE_NAME]) || headers_sent()) {
+            return;
         }
 
-        $value = wp_generate_uuid4();
         $options = [
-            'expires' => time() + YEAR_IN_SECONDS,
+            'expires' => time() - YEAR_IN_SECONDS,
             'path' => defined('COOKIEPATH') && COOKIEPATH ? COOKIEPATH : '/',
             'secure' => is_ssl(),
             'httponly' => true,
             'samesite' => 'Lax',
         ];
-
         if (defined('COOKIE_DOMAIN') && COOKIE_DOMAIN) {
             $options['domain'] = COOKIE_DOMAIN;
         }
 
-        setcookie(self::COOKIE_NAME, $value, $options);
-
-        $_COOKIE[self::COOKIE_NAME] = $value;
-        return $value;
-    }
-
-    private function current_ip(): string
-    {
-        $candidate = (string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ($_SERVER['REMOTE_ADDR'] ?? ''));
-        return sanitize_text_field(explode(',', $candidate)[0]);
+        setcookie(self::COOKIE_NAME, '', $options);
+        unset($_COOKIE[self::COOKIE_NAME]);
     }
 
     private function browser_label(): string

@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.6.5] - 2026-11-06
+
+- Feuer-Cookie-Analytics erfasst Formularsendungen nur bei gültiger Analyse-Einwilligung und ohne übermittelte Ticket- oder Kontaktdaten.
+- Google reCAPTCHA und Cloudflare Turnstile werden nur bei funktionaler FCA-Einwilligung geladen und serverseitig geprüft; die lokale Sicherheitsfrage bleibt als Alternative verfügbar.
+- Die Zustimmung zur Anfrageverarbeitung wird samt gespeicherter Fassung, Datenschutzerklärungslink und Eingangszeitpunkt in der Anfrageübersicht und im Datenschutzexport ausgewiesen.
+- Nicht mehr benötigte Kontaktform-Besucher-Cookies werden nicht neu gesetzt; vorhandene Cookies werden beim Formularaufruf gelöscht.
 
 ## [3.6.4] - 2026-11-05
 

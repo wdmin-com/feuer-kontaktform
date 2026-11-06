@@ -653,10 +653,12 @@ final class Feuer_Kontaktform_Support_Admin
                                     <span>Status: <strong><?php echo esc_html((string) $ticket['status']); ?></strong></span>
                                     <span>Eingang: <strong><?php echo (string) ($ticket['origin'] ?? '') === 'direct_email' ? 'Direkte E-Mail' : 'Kontaktformular'; ?></strong></span>
                                     <span>Datenschutz: <strong><?php echo empty($ticket['privacy_required']) ? 'deaktiviert' : (! empty($ticket['privacy_accepted']) ? 'ja' : 'nein'); ?></strong> / <?php echo esc_html((string) $ticket['privacy_version']); ?></span>
+                                    <?php if (! empty($ticket['privacy_url'])) : ?><span>Datenschutzerklärung: <a href="<?php echo esc_url((string) $ticket['privacy_url']); ?>" target="_blank" rel="noopener noreferrer">Zum gespeicherten Link</a></span><?php endif; ?>
                                     <span>IP (gekürzt): <strong><?php echo esc_html($this->mask_ip_address((string) $ticket['ip_address'])); ?></strong></span>
                                     <span>Gerät: <strong><?php echo esc_html((string) $ticket['device_type']); ?></strong></span>
                                     <span>Browser: <strong><?php echo esc_html((string) $ticket['browser']); ?></strong></span>
                                 </div>
+                                <p class="description"><strong>Gespeicherter Einwilligungstext:</strong><br><?php echo esc_html((string) $ticket['consent_text']); ?></p>
                                 </details>
                                 <?php if ((string) $ticket['status'] === 'quarantined' && $can_reply && $view === 'active') : ?>
                                     <form method="post" class="feuer-ticket-action">
@@ -1173,6 +1175,7 @@ final class Feuer_Kontaktform_Support_Admin
                             <?php wp_nonce_field('feuer_support_admin'); ?>
                             <input type="hidden" name="feuer_support_action" value="save_settings">
                             <h2>Datenschutz</h2>
+                            <p class="description">Die Einwilligung zur Bearbeitung einer Anfrage gilt unabhängig von der Cookie-Auswahl. Eine pseudonyme Auswertung erfolgreicher Formularsendungen wird nur in Feuer-Cookie-Analytics erfasst, wenn dort eine gültige Analyse-Einwilligung vorliegt; Inhalte oder Kontaktdaten werden nicht erfasst.</p>
                             <input type="hidden" name="privacy_enabled" value="0">
                             <label class="feuer-check-label"><input type="checkbox" name="privacy_enabled" value="1" <?php checked(! empty($settings['privacy_enabled'])); ?>> Datenschutz-Schritt im Frontend aktivieren</label>
                             <?php $this->input('privacy_url', 'URL zur Datenschutzerklärung', $settings['privacy_url'], 'url'); ?>
