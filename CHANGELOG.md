@@ -1,5 +1,22 @@
 # Changelog
 
+
+
+## [3.6.8] - 2026-11-17
+
+- Fortschrittsanzeige und Schrittbeschriftung des Kontaktformulars klar getrennt und gegen Überlagerungen abgesichert.
+- Auswahlkarten zeigen Titel und Beschreibung in einer sauberen, linksbündigen Hierarchie.
+- Zurück-Schaltfläche am jeweils ersten erreichbaren Formularschritt ausgeblendet; Navigation über übersprungene Schritte stabilisiert.
+- Schreibweise „Datenschutzerklärung“ in gespeicherten Datenschutzhinweisen automatisch korrigiert.
+
+## [3.6.7] - 2026-11-17
+
+- Profile von Funktionsträgern lassen sich per Shortcode einzeln oder als Leitung-und-Vertretung-Paar ausgeben; bei vakanten oder unveröffentlichten Leitungsprofilen bleibt die verfügbare Vertretung sichtbar.
+- Im Anfrage-Posteingang lassen sich Anfragen über Abteilungs-Schnellfilter mit Trefferzahlen direkt eingrenzen.
+- Kontaktformular zeigt nach dem Absenden die Vorgangsnummer und nächste Schritte; Feldfehler werden hervorgehoben und fokussiert.
+- Hinweise zu Dateiformaten und Uploadgröße, Themensuche bei langen Listen und verbesserte mobile Formularaktionen ergänzt.
+- Formularfortschritt und Statusmeldungen für assistive Technologien ausgezeichnet.
+
 ## [3.6.6] - 2026-11-07
 
 - FCA-Anbindung nutzt die vollständig benannten Feuer-Cookie-Analytics-Funktionen und Ereignisfilter.

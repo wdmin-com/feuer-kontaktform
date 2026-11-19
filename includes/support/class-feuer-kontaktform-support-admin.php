@@ -568,7 +568,8 @@ final class Feuer_Kontaktform_Support_Admin
             'sort' => sanitize_key((string) wp_unslash($_GET['sort'] ?? 'newest')),
         ];
         $tickets = $this->db->get_tickets(200, $search, $view, $filters);
-        $filter_departments = $this->db->get_departments(true);
+        $filter_departments = $this->db->get_departments(false);
+        $department_ticket_counts = $this->db->count_tickets_by_department($view);
         $filter_topics = [];
         foreach ($filter_departments as $filter_department) {
             foreach ($this->db->get_topics((int) $filter_department['id']) as $filter_topic) {
@@ -601,6 +602,26 @@ final class Feuer_Kontaktform_Support_Admin
                     <p class="description"><?php echo $view === 'trash' ? 'Gelöschte Anfragen können wiederhergestellt werden. Endgültiges Löschen ist nur für Administratoren verfügbar.' : 'Die Anfrage Nr. gehört in den Betreff jeder E-Mail-Antwort, damit der Dialog zugeordnet werden kann.'; ?></p>
                 </div>
                 <div class="feuer-section-body">
+                <nav class="feuer-department-quickfilters" aria-label="Schnellfilter nach Abteilung">
+                    <span class="feuer-department-quickfilters-label">Abteilung</span>
+                    <?php
+                    $department_filter_url = add_query_arg(
+                        ['page' => self::TICKETS_SLUG, 'feuer_view' => $view, 'feuer_search' => $search],
+                        admin_url('admin.php')
+                    );
+                    ?>
+                    <a class="<?php echo $filters['department_id'] === 0 ? 'is-active' : ''; ?>" <?php echo $filters['department_id'] === 0 ? 'aria-current="true"' : ''; ?> href="<?php echo esc_url($department_filter_url); ?>">Alle <span><?php echo esc_html((string) $counts[$view]); ?></span></a>
+                    <?php foreach ($filter_departments as $department) : ?>
+                        <?php
+                        $department_id = (int) $department['id'];
+                        $department_filter_link = add_query_arg('department_id', $department_id, $department_filter_url);
+                        ?>
+                        <a class="<?php echo $filters['department_id'] === $department_id ? 'is-active' : ''; ?>" <?php echo $filters['department_id'] === $department_id ? 'aria-current="true"' : ''; ?> href="<?php echo esc_url($department_filter_link); ?>">
+                            <?php echo esc_html((string) $department['name']); ?>
+                            <span><?php echo esc_html((string) ($department_ticket_counts[$department_id] ?? 0)); ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </nav>
                 <form method="get" class="feuer-search-row">
                     <input type="hidden" name="page" value="<?php echo esc_attr(self::TICKETS_SLUG); ?>">
                     <input type="hidden" name="feuer_view" value="<?php echo esc_attr($view); ?>">
@@ -1324,6 +1345,11 @@ final class Feuer_Kontaktform_Support_Admin
 
                     <div class="feuer-tab-panel" data-tab-panel="settings-shortcodes">
                         <h2>Shortcodes</h2>
+                        <h3>Profile von Funktionsträgern</h3>
+                        <p><code>[feuer-kontaktform-ansprechpartner department="wehrfuehrer"]</code> zeigt nur das veröffentlichte Profil der angegebenen Abteilung/Funktion.</p>
+                        <p><code>[feuer-kontaktform-ansprechpartner-paar primary="wehrfuehrer" deputy="wehrfuehrervertreter"]</code> zeigt das Profil der Leitung und ihrer Vertretung. Ist die Leitung nicht veröffentlicht oder ohne Namen, erscheint automatisch nur das verfügbare Profil der Vertretung.</p>
+                        <p class="description">Verwenden Sie dieselben Abteilungs-Slugs, die unter „Abteilungen &amp; Themen“ im Feld „Kurzname / Slug“ stehen. So können Sie getrennte Profile für Wehrführung, Jugendfeuerwehr, Minifeuerwehr und Förderverein einrichten.</p>
+                        <hr>
                         <p><code>[feuer-kontaktform]</code> kompletter Wizard.</p>
                         <p><code>[feuer-kontaktform department="wehrfuehrung"]</code> direkt zu einer Abteilung.</p>
                         <p><code>[feuer-kontaktform department="wehrfuehrung" topic="mitglied-werden"]</code> direkt zu einem Thema.</p>
@@ -1797,6 +1823,7 @@ final class Feuer_Kontaktform_Support_Admin
             <p class="description">Diese Shortcodes sind direkt auf diese Abteilung oder ein Thema vorkonfiguriert.</p>
             <div><code>[feuer-kontaktform department="<?php echo esc_attr((string) $department['slug']); ?>"]</code><span>Wizard direkt für diese Abteilung.</span></div>
             <div><code>[feuer-kontaktform-schnell department="<?php echo esc_attr((string) $department['slug']); ?>"]</code><span>Schnellformular für diese Abteilung.</span></div>
+            <div><code>[feuer-kontaktform-ansprechpartner department="<?php echo esc_attr((string) $department['slug']); ?>"]</code><span>Zeigt nur das veröffentlichte Profil dieser Funktion.</span></div>
             <div><code><?php echo esc_html($this->frontend_link_example(['feuer_department' => (string) $department['slug']])); ?></code><span>Direkter Link in diese Abteilung.</span></div>
             <?php foreach ($topics as $topic) : ?>
                 <div><code>[feuer-kontaktform department="<?php echo esc_attr((string) $department['slug']); ?>" topic="<?php echo esc_attr((string) $topic['slug']); ?>"]</code><span><?php echo esc_html((string) $topic['title']); ?></span></div>

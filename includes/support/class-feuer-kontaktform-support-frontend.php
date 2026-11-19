@@ -26,6 +26,7 @@ final class Feuer_Kontaktform_Support_Frontend
         add_shortcode('feuer-kontaktform-formular', [$this, 'shortcode']);
         add_shortcode('feuer-kontaktform-alle', [$this, 'shortcode']);
         add_shortcode('feuer-kontaktform-ansprechpartner', [$this, 'contacts_shortcode']);
+        add_shortcode('feuer-kontaktform-ansprechpartner-paar', [$this, 'contact_pair_shortcode']);
         add_action('wp_ajax_feuer_support_submit_ticket', [$this, 'submit_ajax']);
         add_action('wp_ajax_nopriv_feuer_support_submit_ticket', [$this, 'submit_ajax']);
         add_action('wp_ajax_feuer_contact_reveal', [$this, 'reveal_contact']);
@@ -49,13 +50,54 @@ final class Feuer_Kontaktform_Support_Frontend
         return $this->render($atts, true);
     }
 
-    public function contacts_shortcode(): string
+    public function contacts_shortcode(array $atts = []): string
     {
         $contacts = $this->db->get_public_contacts();
+        $atts = shortcode_atts(['department' => ''], $atts, 'feuer-kontaktform-ansprechpartner');
+        $department_slug = sanitize_title((string) $atts['department']);
+        $empty_message = 'Derzeit sind keine Ansprechpartner zur Veröffentlichung freigegeben.';
+        if ($department_slug !== '') {
+            $contacts = array_values(array_filter($contacts, static function (array $contact) use ($department_slug): bool {
+                return (string) ($contact['department_slug'] ?? '') === $department_slug
+                    && trim((string) ($contact['name'] ?? '')) !== '';
+            }));
+            $empty_message = 'Für diese Funktion ist derzeit kein veröffentlichtes Profil verfügbar.';
+        }
+        return $this->render_contacts($contacts, $empty_message);
+    }
+
+    public function contact_pair_shortcode(array $atts = []): string
+    {
+        $atts = shortcode_atts(
+            ['primary' => '', 'deputy' => ''],
+            $atts,
+            'feuer-kontaktform-ansprechpartner-paar'
+        );
+        $primary_slug = sanitize_title((string) $atts['primary']);
+        $deputy_slug = sanitize_title((string) $atts['deputy']);
+        $contacts_by_slug = [];
+        foreach ($this->db->get_public_contacts() as $contact) {
+            if (trim((string) ($contact['name'] ?? '')) !== '') {
+                $contacts_by_slug[(string) $contact['department_slug']] = $contact;
+            }
+        }
+
+        // A vacant primary role is intentionally omitted; an available deputy remains visible.
+        $contacts = [];
+        foreach (array_unique(array_filter([$primary_slug, $deputy_slug])) as $slug) {
+            if (isset($contacts_by_slug[$slug])) {
+                $contacts[] = $contacts_by_slug[$slug];
+            }
+        }
+        return $this->render_contacts($contacts, 'Für diese Funktionen ist derzeit kein veröffentlichtes Profil verfügbar.');
+    }
+
+    private function render_contacts(array $contacts, string $empty_message): string
+    {
         if ($contacts === []) {
             wp_enqueue_style('feuer-kontaktform-support-frontend');
             wp_enqueue_style('feuer-kontaktform-support-frontend-design');
-            return '<p class="feuer-contacts-empty">Derzeit sind keine Ansprechpartner zur Veröffentlichung freigegeben.</p>';
+            return '<p class="feuer-contacts-empty">' . esc_html($empty_message) . '</p>';
         }
         wp_enqueue_style('feuer-kontaktform-support-frontend');
         wp_enqueue_style('feuer-kontaktform-support-frontend-design');
@@ -227,6 +269,7 @@ final class Feuer_Kontaktform_Support_Frontend
             'message' => $message,
             'ticket' => $ticket_code,
             'ticketId' => $ticket_id,
+            'deliverySuccess' => ! empty($mail['success']),
         ]);
     }
 
@@ -310,7 +353,7 @@ final class Feuer_Kontaktform_Support_Frontend
                     <?php endif; ?>
                 </section>
             <?php endif; ?>
-            <form class="feuer-support-form" enctype="multipart/form-data"
+            <form class="feuer-support-form" enctype="multipart/form-data" data-feuer-cookie-analytics-track-form data-feuer-cookie-analytics-form="kontaktformular"
                 data-config="<?php echo esc_attr((string) wp_json_encode($config)); ?>"
                 data-ajax-url="<?php echo esc_url(admin_url('admin-ajax.php')); ?>"
                 data-direct-department="<?php echo esc_attr((string) $direct_department); ?>"
@@ -327,8 +370,11 @@ final class Feuer_Kontaktform_Support_Frontend
                     <label class="feuer-honeypot">Company<input type="text" name="company" value="" tabindex="-1" autocomplete="off"></label>
                 <?php endif; ?>
 
-                <div class="feuer-support-progress"><span data-progress-bar></span></div>
-                <div class="feuer-support-message" data-message hidden></div>
+                <div class="feuer-progress-header">
+                    <p class="feuer-step-indicator" data-step-indicator aria-live="polite"></p>
+                    <div class="feuer-support-progress" role="progressbar" aria-label="Fortschritt des Kontaktformulars" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span data-progress-bar></span></div>
+                </div>
+                <div class="feuer-support-message" data-message role="status" aria-live="polite" hidden></div>
 
                 <section class="feuer-step is-active" data-step="department" <?php echo $direct_department ? 'data-skip="1"' : ''; ?>>
                     <p class="feuer-kicker">Abteilung</p>
@@ -381,8 +427,10 @@ final class Feuer_Kontaktform_Support_Frontend
 
                 <section class="feuer-step" data-step="done">
                     <p class="feuer-kicker">Gesendet</p>
-                    <h2>Ihre Anfrage wurde gespeichert</h2>
+                    <h2 tabindex="-1" data-success-heading>Vielen Dank für Ihre Nachricht.</h2>
+                    <div class="feuer-success-ticket"><span>Anfrage-Nr.</span><strong data-success-ticket></strong></div>
                     <p data-success-text></p>
+                    <div class="feuer-success-next"><strong>Wie geht es weiter?</strong><p data-success-next></p></div>
                 </section>
 
                 <div class="feuer-submit-overlay" data-overlay hidden><span></span><b>Anfrage wird gespeichert...</b></div>

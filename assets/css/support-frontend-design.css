@@ -42,9 +42,17 @@
 .feuer-step > p:not(.feuer-kicker) { color: var(--feuer-muted); line-height: 1.6; }
 .feuer-step a { color: var(--feuer-red); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 
-.feuer-support-progress { height: 5px; margin-bottom: 30px; border-radius: 99px; background: #e9eef3; }
+.feuer-progress-header { display: grid; gap: 8px; margin: 0 0 30px; }
+.feuer-step-indicator { margin: 0; color: var(--feuer-muted); font-size: 12px; font-weight: 700; line-height: 1.4; }
+.feuer-progress-header .feuer-support-progress { height: 5px; margin: 0; border-radius: 99px; background: #e9eef3; }
 .feuer-support-progress span { border-radius: inherit; background: var(--feuer-red); }
 .feuer-options { gap: 10px; }
+.feuer-support-form .feuer-option { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; text-align: left; }
+.feuer-support-form .feuer-option > strong,
+.feuer-support-form .feuer-option > span { display: block; width: 100%; text-align: left; }
+.feuer-support-form .feuer-option > strong { font-weight: 750; }
+.feuer-support-form .feuer-option > span { margin-top: 0; font-weight: 400; }
+.feuer-support-form .feuer-option > span:empty { display: none; }
 .feuer-option {
   display: block;
   padding: 17px 19px;
@@ -143,6 +151,25 @@
 .feuer-faq-item summary span { color: var(--feuer-red); }
 .feuer-faq-answer { color: var(--feuer-muted); }
 
+.feuer-progress-header .feuer-support-progress { overflow: hidden; }
+.feuer-topic-search { display: grid; gap: 7px; margin: 0 0 12px; color: var(--feuer-muted); font-size: 13px; font-weight: 700; }
+.feuer-topic-search input { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid var(--feuer-line); border-radius: 9px; background: #fff; color: var(--feuer-dark); font: inherit; }
+.feuer-topic-search input:focus { outline: 2px solid var(--feuer-red); outline-offset: 2px; border-color: var(--feuer-red); }
+.feuer-topic-options { display: grid; gap: 10px; }
+.feuer-topic-options .feuer-option[hidden] { display: none !important; }
+.feuer-topic-no-results { margin: 10px 0 0; padding: 12px 14px; border-radius: 9px; background: var(--feuer-soft); color: var(--feuer-muted); }
+.feuer-field-help { display: block; margin: 2px 0 7px; color: var(--feuer-muted); font-size: 12px; font-weight: 500; line-height: 1.5; }
+.feuer-field em:empty { display: none; }
+.feuer-success-ticket { display: grid; justify-items: center; gap: 4px; width: fit-content; min-width: 190px; margin: 22px auto; padding: 16px 24px; border: 1px solid #cfe4d5; border-radius: 12px; background: #f2faf4; color: #285d3b; }
+.feuer-success-ticket span { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.feuer-success-ticket strong { font-size: 25px; letter-spacing: .04em; }
+.feuer-success-next { margin-top: 18px; padding: 16px 18px; border: 1px solid var(--feuer-line); border-radius: 11px; background: var(--feuer-soft); }
+.feuer-success-next > strong { display: block; margin-bottom: 5px; color: var(--feuer-dark); }
+.feuer-success-next p { margin: 0; color: var(--feuer-muted); line-height: 1.6; }
+.feuer-support-shell :focus-visible { outline: 2px solid var(--feuer-red); outline-offset: 3px; }
+.feuer-design-stripe .feuer-progress-header { margin: -30px -30px 26px; }
+.feuer-design-stripe .feuer-progress-header .feuer-support-progress { margin: 0; }
+
 .feuer-contacts-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
 .feuer-contact-person { border-color: var(--feuer-line); border-radius: 14px; box-shadow: 0 6px 22px rgba(24,35,55,.06); }
 .feuer-contact-avatar { background: #f8e8eb; color: var(--feuer-red); }
@@ -156,8 +183,11 @@
   .feuer-choice-row { grid-template-columns: 1fr; }
   .feuer-step-actions { flex-wrap: wrap; }
   .feuer-step-actions button { flex: 1 1 130px; }
+  .feuer-step-actions button[data-next],
+  .feuer-step-actions button[type="submit"] { flex: 1 0 100%; min-height: 50px; }
   .feuer-design-rail .feuer-support-form { padding-left: 34px; }
-  .feuer-design-stripe .feuer-support-progress { margin: -22px -18px 24px; }
+  .feuer-design-stripe .feuer-progress-header { margin: -22px -18px 24px; }
+  .feuer-design-stripe .feuer-progress-header .feuer-support-progress { margin: 0; }
   .feuer-contact-launcher { padding: 22px 18px; }
 }
 @media (prefers-reduced-motion: reduce) {

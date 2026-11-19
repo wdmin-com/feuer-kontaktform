@@ -421,6 +421,11 @@ final class Feuer_Kontaktform_Support_DB
     {
         $settings = get_option(self::OPTION_SETTINGS);
         $settings = wp_parse_args(is_array($settings) ? $settings : [], self::default_settings());
+        $settings['privacy_text'] = str_ireplace(
+            'Datenschutzerklaerung',
+            'Datenschutzerklärung',
+            (string) ($settings['privacy_text'] ?? '')
+        );
         $settings['smtp_password'] = $this->decrypt_secret((string) ($settings['smtp_password'] ?? ''));
         $settings['imap_password'] = $this->decrypt_secret((string) ($settings['imap_password'] ?? ''));
         $settings['turnstile_secret_key'] = $this->decrypt_secret((string) ($settings['turnstile_secret_key'] ?? ''));
@@ -1538,6 +1543,30 @@ final class Feuer_Kontaktform_Support_DB
         }
 
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$this->tickets_table} WHERE status NOT IN ('spam', 'trash', 'archived')");
+    }
+
+    /** Ticket counts by department for the selected inbox view. */
+    public function count_tickets_by_department(string $view = 'active'): array
+    {
+        global $wpdb;
+
+        if (! in_array($view, ['active', 'spam', 'trash', 'archived'], true)) {
+            $view = 'active';
+        }
+
+        $where = in_array($view, ['spam', 'trash', 'archived'], true)
+            ? $wpdb->prepare('WHERE status = %s', $view)
+            : "WHERE status NOT IN ('spam', 'trash', 'archived')";
+        $rows = $wpdb->get_results(
+            "SELECT department_id, COUNT(*) AS ticket_count FROM {$this->tickets_table} {$where} GROUP BY department_id",
+            ARRAY_A
+        );
+        $counts = [];
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $counts[(int) $row['department_id']] = (int) $row['ticket_count'];
+        }
+
+        return $counts;
     }
 
     public function delete_ticket_permanently(int $ticket_id): bool

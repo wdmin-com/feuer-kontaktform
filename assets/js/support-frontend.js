@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     box.textContent = text || '';
     box.className = 'feuer-support-message ' + (type || '');
+    box.setAttribute('role', type === 'error' ? 'alert' : 'status');
     show(box, !!text);
   }
 
@@ -68,13 +69,17 @@ document.addEventListener('DOMContentLoaded', function () {
       var button = optionButton(department.name, department.description || '');
       button.addEventListener('click', function () {
         input.value = department.id;
-        qsa(target, '.feuer-option').forEach(function (item) { item.classList.remove('is-selected'); });
+        qsa(target, '.feuer-option').forEach(function (item) { item.classList.remove('is-selected'); item.setAttribute('aria-pressed', 'false'); });
         button.classList.add('is-selected');
+        button.setAttribute('aria-pressed', 'true');
         form.querySelector('[data-topic-input]').value = '';
         renderTopics(form);
       });
       if (String(input.value) === String(department.id)) {
         button.classList.add('is-selected');
+        button.setAttribute('aria-pressed', 'true');
+      } else {
+        button.setAttribute('aria-pressed', 'false');
       }
       target.appendChild(button);
     });
@@ -91,20 +96,65 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!department) {
       return;
     }
-    (department.topics || []).forEach(function (topic) {
+    var topics = department.topics || [];
+    if (topics.length >= 8) {
+      var searchLabel = document.createElement('label');
+      searchLabel.className = 'feuer-topic-search';
+      searchLabel.innerHTML = '<span>Themen durchsuchen</span><input type="search" autocomplete="off">';
+      searchLabel.querySelector('input').setAttribute('aria-label', 'Themen durchsuchen');
+      target.appendChild(searchLabel);
+    }
+    var topicList = document.createElement('div');
+    topicList.className = 'feuer-topic-options';
+    target.appendChild(topicList);
+    topics.forEach(function (topic) {
       var button = optionButton(topic.title, '');
+      button.setAttribute('data-topic-search', String(topic.title || '').toLocaleLowerCase());
       button.addEventListener('click', function () {
         input.value = topic.id;
-        qsa(target, '.feuer-option').forEach(function (item) { item.classList.remove('is-selected'); });
+        qsa(topicList, '.feuer-option').forEach(function (item) { item.classList.remove('is-selected'); item.setAttribute('aria-pressed', 'false'); });
         button.classList.add('is-selected');
+        button.setAttribute('aria-pressed', 'true');
         renderFields(form);
       });
       if (String(input.value) === String(topic.id)) {
         button.classList.add('is-selected');
+        button.setAttribute('aria-pressed', 'true');
+      } else {
+        button.setAttribute('aria-pressed', 'false');
       }
-      target.appendChild(button);
+      topicList.appendChild(button);
     });
+    if (topics.length >= 8) {
+      var noResults = document.createElement('p');
+      noResults.className = 'feuer-topic-no-results';
+      noResults.textContent = 'Keine passenden Themen gefunden.';
+      noResults.hidden = true;
+      target.appendChild(noResults);
+      searchLabel.querySelector('input').addEventListener('input', function () {
+        var query = this.value.trim().toLocaleLowerCase();
+        var visibleCount = 0;
+        qsa(topicList, '.feuer-option').forEach(function (button) {
+          var matches = (button.getAttribute('data-topic-search') || '').indexOf(query) !== -1;
+          button.hidden = !matches;
+          if (matches) visibleCount += 1;
+        });
+        noResults.hidden = visibleCount > 0;
+      });
+    }
     renderFields(form);
+  }
+
+  function fileExtensions(form) {
+    var raw = form.getAttribute('data-file-types') || '';
+    var extensions = [];
+    raw.split(/[\s,;]+/).forEach(function (item) {
+      item.split('|').forEach(function (extension) {
+        extension = extension.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        if (extension && extensions.indexOf(extension) === -1) extensions.push(extension);
+      });
+    });
+    return extensions;
   }
 
   function fieldControl(form, field) {
@@ -131,15 +181,41 @@ document.addEventListener('DOMContentLoaded', function () {
       input = document.createElement('input');
       input.type = field.type === 'file' ? 'file' : (field.type || 'text');
       if (field.type === 'file') {
-        input.accept = (form.getAttribute('data-file-types') || '').split(/[\s,;]+/).filter(Boolean).map(function (type) {
-          return '.' + type.replace(/[^a-z0-9]/gi, '').toLowerCase();
-        }).join(',');
+        input.accept = fileExtensions(form).map(function (type) { return '.' + type; }).join(',');
       }
     }
 
     input.name = 'fields[' + field.key + ']';
     input.setAttribute('data-required', field.required ? '1' : '0');
+    var error = wrap.querySelector('em');
+    error.id = 'feuer-field-error-' + String(field.key).replace(/[^a-z0-9_-]/gi, '-');
+    input.setAttribute('aria-describedby', error.id);
     wrap.insertBefore(input, wrap.querySelector('em'));
+    if (field.type === 'file') {
+      var extensions = fileExtensions(form);
+      var maxMb = parseInt(form.getAttribute('data-max-file-mb') || '8', 10);
+      var help = document.createElement('small');
+      help.className = 'feuer-field-help';
+      help.id = error.id + '-help';
+      help.textContent = (extensions.length ? 'Erlaubte Formate: ' + extensions.map(function (extension) { return extension.toUpperCase(); }).join(', ') + '. ' : '')
+        + 'Maximale Dateigröße: ' + maxMb + ' MB.';
+      input.setAttribute('aria-describedby', help.id + ' ' + error.id);
+      wrap.insertBefore(help, error);
+    }
+    input.addEventListener('input', function () {
+      if (input.getAttribute('aria-invalid') === 'true') {
+        input.removeAttribute('aria-invalid');
+        wrap.classList.remove('has-error');
+        error.textContent = '';
+      }
+    });
+    input.addEventListener('change', function () {
+      if (input.getAttribute('aria-invalid') === 'true') {
+        input.removeAttribute('aria-invalid');
+        wrap.classList.remove('has-error');
+        error.textContent = '';
+      }
+    });
     return wrap;
   }
 
@@ -187,10 +263,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function updateProgress(form) {
     var bar = form.querySelector('[data-progress-bar]');
-    var total = panels(form).length - 1;
-    var index = Math.min(stepIndex(form) + 1, total);
+    var indicator = form.querySelector('[data-step-indicator]');
+    var progress = form.querySelector('.feuer-support-progress');
+    var list = panels(form);
+    var active = list[stepIndex(form)];
+    var sequence = list.filter(function (panel) {
+      return panel.getAttribute('data-step') !== 'done' && panel.getAttribute('data-skip') !== '1';
+    });
+    var done = active && active.getAttribute('data-step') === 'done';
+    var step = sequence.indexOf(active) + 1;
+    var total = sequence.length;
+    var percent = done ? 100 : (total > 0 ? Math.round((step / total) * 100) : 0);
     if (bar) {
-      var value = Math.max(8, Math.round((index / total) * 100)) + '%';
+      var value = percent + '%';
       if (form.closest('.feuer-design-rail')) {
         bar.style.height = value;
         bar.style.width = '100%';
@@ -199,21 +284,33 @@ document.addEventListener('DOMContentLoaded', function () {
         bar.style.height = '100%';
       }
     }
+    if (progress) progress.setAttribute('aria-valuenow', String(percent));
+    if (indicator) indicator.textContent = done ? 'Anfrage abgeschlossen' : 'Schritt ' + step + ' von ' + total;
   }
 
   function showStep(form, index, direction) {
     var list = panels(form);
     index = Math.max(0, Math.min(index, list.length - 1));
-
-    if (list[index] && list[index].getAttribute('data-skip') === '1') {
-      showStep(form, index + (direction === 'back' ? -1 : 1), direction);
-      return;
+    var firstVisibleIndex = list.findIndex(function (panel) {
+      return panel.getAttribute('data-step') !== 'done' && panel.getAttribute('data-skip') !== '1';
+    });
+    var increment = direction === 'back' ? -1 : 1;
+    while (list[index] && list[index].getAttribute('data-skip') === '1') {
+      var nextIndex = index + increment;
+      if (nextIndex < 0 || nextIndex >= list.length) {
+        index = Math.max(0, firstVisibleIndex);
+        break;
+      }
+      index = nextIndex;
     }
 
     list.forEach(function (panel, panelIndex) {
       var active = panelIndex === index;
       panel.classList.toggle('is-active', active);
       show(panel, active);
+      qsa(panel, '[data-prev]').forEach(function (button) {
+        show(button, panelIndex !== firstVisibleIndex);
+      });
     });
     form.setAttribute('data-step-index', String(index));
     updateProgress(form);
@@ -224,6 +321,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var denied = form.querySelector('[data-denied]');
     if (!choice) {
       setMessage(form, 'Bitte treffen Sie eine Auswahl zum Datenschutz.', 'error');
+      var privacyInput = form.querySelector('input[name="privacy"]');
+      if (privacyInput) privacyInput.focus();
       return false;
     }
     if (choice.value === 'no') {
@@ -237,6 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function validateFields(form) {
     var valid = true;
+    var firstInvalid = null;
     qsa(form, '[data-field-key]').forEach(function (wrap) {
       var input = wrap.querySelector('input, textarea, select');
       var error = wrap.querySelector('em');
@@ -253,15 +353,21 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       wrap.classList.toggle('has-error', !!message);
+      if (input) {
+        if (message) input.setAttribute('aria-invalid', 'true');
+        else input.removeAttribute('aria-invalid');
+      }
       if (error) {
         error.textContent = message;
       }
       if (message) {
         valid = false;
+        if (! firstInvalid) firstInvalid = input;
       }
     });
     if (!valid) {
       setMessage(form, 'Bitte korrigieren Sie die markierten Felder.', 'error');
+      if (firstInvalid) firstInvalid.focus();
     }
     return valid;
   }
@@ -276,10 +382,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (name === 'department' && !currentDepartment(form)) {
       setMessage(form, 'Bitte wählen Sie eine Abteilung aus.', 'error');
+      var departmentOption = form.querySelector('[data-departments] .feuer-option');
+      if (departmentOption) departmentOption.focus();
       return false;
     }
     if (name === 'topic' && !currentTopic(form)) {
       setMessage(form, 'Bitte wählen Sie ein Thema aus.', 'error');
+      var topicOption = form.querySelector('[data-topics] .feuer-option');
+      if (topicOption) topicOption.focus();
       return false;
     }
     if (name === 'fields') {
@@ -287,6 +397,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (name === 'captcha' && !form.querySelector('input[name="captcha_answer"]').value.trim()) {
       setMessage(form, 'Bitte beantworten Sie die Sicherheitsfrage.', 'error');
+      form.querySelector('input[name="captcha_answer"]').focus();
       return false;
     }
     return true;
@@ -305,6 +416,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function applyServerFieldErrors(form, errors) {
+    var firstInvalid = null;
     Object.keys(errors || {}).forEach(function (key) {
       var wrap = form.querySelector('[data-field-key="' + key + '"]');
       if (!wrap) {
@@ -315,7 +427,13 @@ document.addEventListener('DOMContentLoaded', function () {
       if (error) {
         error.textContent = errors[key];
       }
+      var input = wrap.querySelector('input, textarea, select');
+      if (input) {
+        input.setAttribute('aria-invalid', 'true');
+        if (! firstInvalid) firstInvalid = input;
+      }
     });
+    return firstInvalid;
   }
 
   function submit(form) {
@@ -333,8 +451,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }).then(function (json) {
       var payload = json && json.data ? json.data : {};
       if (json && json.success) {
+        var ticketNumber = form.querySelector('[data-success-ticket]');
+        var nextSteps = form.querySelector('[data-success-next]');
         form.querySelector('[data-success-text]').textContent = payload.message || 'Ihre Anfrage wurde gesendet.';
+        if (ticketNumber) ticketNumber.textContent = payload.ticket ? '#' + payload.ticket : '—';
+        if (nextSteps) {
+          nextSteps.textContent = payload.deliverySuccess === false
+            ? 'Ihre Anfrage wurde gespeichert. Die E-Mail-Weiterleitung ist fehlgeschlagen; das Team kann den Vorgang im WordPress-System bearbeiten.'
+            : 'Die Anfrage wurde an die zuständige Abteilung weitergeleitet. Bewahren Sie die Anfragenummer für Rückfragen auf.';
+        }
         showStep(form, panels(form).length - 1);
+        var successHeading = form.querySelector('[data-success-heading]');
+        if (successHeading) successHeading.focus();
         return;
       }
 
@@ -346,7 +474,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         form.querySelector('input[name="captcha_answer"]').value = '';
       }
-      applyServerFieldErrors(form, payload.fieldErrors || {});
+      var firstInvalid = applyServerFieldErrors(form, payload.fieldErrors || {});
+      if (firstInvalid) {
+        var fieldsStep = panels(form).findIndex(function (panel) { return panel.getAttribute('data-step') === 'fields'; });
+        if (fieldsStep >= 0) showStep(form, fieldsStep);
+        window.requestAnimationFrame(function () { firstInvalid.focus(); });
+      }
       setMessage(form, payload.message || 'Die Anfrage konnte nicht gespeichert werden.', 'error');
     }).catch(function () {
       setMessage(form, 'Die Anfrage konnte nicht gespeichert werden.', 'error');
