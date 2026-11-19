@@ -8,6 +8,7 @@
  * Author URI: https://wdmin.com/
  * Requires at least: 7.1
  * Requires PHP: 8.1
+ * License: Proprietary - personal permission required
  */
 
 declare(strict_types=1);

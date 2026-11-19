@@ -4,6 +4,7 @@
 
 ## [3.6.8] - 2026-11-17
 
+- Proprietäre Lizenz mit persönlicher Nutzungserlaubnis ergänzt und in Plugin-Metadaten ausgewiesen.
 - Fortschrittsanzeige und Schrittbeschriftung des Kontaktformulars klar getrennt und gegen Überlagerungen abgesichert.
 - Auswahlkarten zeigen Titel und Beschreibung in einer sauberen, linksbündigen Hierarchie.
 - Zurück-Schaltfläche am jeweils ersten erreichbaren Formularschritt ausgeblendet; Navigation über übersprungene Schritte stabilisiert.
